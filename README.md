@@ -65,10 +65,10 @@ darwin-backend/
 │   ├── ledger_service.py      # SELECT … FOR UPDATE row locks, InsufficientFundsError
 │   ├── vcc_service.py         # pgcrypto AES-256 encrypt/decrypt, JIT Browserbase injection
 │   ├── canvas_service.py      # darwin_events INSERT → Supabase Realtime fan-out
-│   ├── modal_service.py       # Modal SDK — spawn, kill signal (Redis), heartbeat, uplink pub/sub
+│   ├── modal_service.py       # Modal SDK — spawn, JWT revocation (kill signal), uplink pub/sub
 │   ├── telegram_service.py    # Telegram Bot API — alerts, approvals, CAPTCHA links
 │   ├── intent_scan_service.py # Claude Haiku pre-flight abuse classifier
-│   └── langsmith_service.py   # LangSmith trace fetch + 5-min Redis cache (Mental Replay)
+│   └── langsmith_service.py   # Trace fetch + 5-min Redis cache (Mental Replay) — TODO: migrate to Langfuse
 │
 ├── workers/
 │   ├── app.py                 # Celery app — broker, queues, Beat schedule
@@ -79,7 +79,8 @@ darwin-backend/
 ├── db/
 │   ├── client.py              # asyncpg connection pool + Supabase async client
 │   ├── migrations/
-│   │   └── 001_initial.sql    # Full schema: 11 tables, RLS policies, pgvector index, Realtime
+│   │   ├── 001_initial.sql    # Full schema: 11 tables, RLS policies, pgvector index, Realtime
+│   │   └── 002_hermes_capabilities.sql  # llm_calls table, session_costs view, darwin_cron_jobs table
 │   └── seed.py                # Dev seed data
 │
 ├── tests/
@@ -179,8 +180,9 @@ uv run mypy .
 | `TELEGRAM_BOT_TOKEN` | ✅ | Telegram Bot API token |
 | `TELEGRAM_ADMIN_CHAT_ID` | — | Chat ID for platform-level admin alerts |
 | `STRIPE_WEBHOOK_SECRET` | ✅ | Stripe webhook signature secret (`whsec_...`) |
-| `LANGSMITH_API_KEY` | — | LangSmith trace fetching for Mental Replay |
-| `LANGCHAIN_PROJECT` | — | LangSmith project name (default: `darwin-production`) |
+| `LANGFUSE_SECRET_KEY` | — | Langfuse secret key for Mental Replay trace fetching |
+| `LANGFUSE_PUBLIC_KEY` | — | Langfuse public key |
+| `LANGFUSE_HOST` | — | Langfuse base URL (default: `https://cloud.langfuse.com`) |
 | `BROWSERBASE_API_KEY` | — | Browserbase API key for VCC injection relay |
 | `BROWSERBASE_PROJECT_ID` | — | Browserbase project ID |
 | `REDIS_URL` | ✅ | Redis connection string |
@@ -207,7 +209,7 @@ All routes are prefixed `/api/v1`. Docs available at `GET /docs` (disabled in pr
 | `GET` | `/users/{uid}/swarm-state` | Aggregate P&L for the dashboard |
 | `POST` | `/darwins/spawn` | Create and launch a new agent |
 | `GET` | `/darwins/{id}/state` | FSM state + burn rate |
-| `GET` | `/darwins/{id}/logs` | LangSmith thought log for Mental Replay |
+| `GET` | `/darwins/{id}/logs` | Langfuse thought log for Mental Replay |
 | `POST` | `/darwins/{id}/wake` | Manually wake a hibernating agent |
 | `POST` | `/darwins/{id}/terminate` | Kill switch |
 | `POST` | `/darwins/{id}/uplink` | Inject mid-lifecycle prompt |
@@ -226,14 +228,18 @@ All routes are prefixed `/api/v1`. Docs available at `GET /docs` (disabled in pr
 
 | Method | Path | Agent tool |
 | --- | --- | --- |
-| `POST` | `/telemetry/stream` | `_heartbeat()` |
-| `POST` | `/telemetry/stream-event` | all tools |
+| `POST` | `/telemetry/stream` | `post_llm_call` hook (rolling metrics) |
+| `POST` | `/telemetry/stream-event` | all tools (canvas events) |
+| `POST` | `/telemetry/llm-call` | `post_llm_call` hook (per-call cost record) |
 | `POST` | `/telemetry/entity` | `save_entity()` |
 | `POST` | `/telemetry/trip` | circuit breaker |
 | `POST` | `/finance/ledger/update` | `check_ledger()`, `record_expense()` |
 | `POST` | `/finance/inject-payment` | `inject_payment()` |
 | `POST` | `/finance/microtx` | USDC settlement |
 | `POST` | `/darwins/{id}/hibernate` | `hibernate()` |
+| `POST` | `/darwins/{id}/cron` | Hermes `cronjob` tool |
+| `DELETE` | `/darwins/{id}/cron/{name}` | Hermes `cronjob` tool |
+| `GET` | `/darwins/{id}/cron` | Hermes `cronjob` tool |
 | `POST` | `/memory/upload` | `save_skill()` |
 | `POST` | `/memory/query` | `search_skills()` |
 | `POST` | `/memory/royalty` | (automatic on skill use) |

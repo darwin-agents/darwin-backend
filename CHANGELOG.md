@@ -9,6 +9,39 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Planned
+
+- `services/langsmith_service.py` → rename to `langfuse_service.py` and migrate Mental Replay trace fetching from LangSmith SDK to Langfuse SDK. The agent now emits traces to Langfuse via the Hermes `observability/langfuse` plugin; the backend's Mental Replay endpoint should query Langfuse instead of LangSmith.
+- `schemas/telemetry.py` — update `VALID_EVENT_TYPES` as new canvas event types are discovered.
+
+---
+
+## [0.1.1] — 2026-05-02
+
+Hermes capabilities additions — new endpoints and schema to support the v0.1 agent architecture.
+
+### Added
+
+**Telemetry**
+- `POST /telemetry/llm-call` — records a single LLM API call with full token breakdown (`input_tokens`, `output_tokens`, `cache_read_tokens`, `reasoning_tokens`, `cost_usd`, `duration_ms`, `provider`, `turn_id`). Fires a `LLM_INFERENCE` canvas event for the Mental Replay overlay. Called by the agent's `post_llm_call` hook after every inference.
+- `schemas/telemetry.py` — added `LLMCallRequest` Pydantic model
+- `schemas/telemetry.py` — `VALID_EVENT_TYPES` expanded by 18 new types: `AGENT_KILLED`, `SESSION_ENDED`, `LLM_INFERENCE`, `DELEGATE_SPAWNED`, `DELEGATE_COMPLETED`, `CODE_EXEC_START`, `CODE_EXEC_END`, `SKILL_EXECUTED`, `MEMORY_COMPRESSED`, `PROVIDER_ROTATED`, `CRON_SCHEDULED`, `CRON_CANCELLED`, `CRON_FIRED`
+
+**Cron scheduling**
+- `POST /darwins/{id}/cron` — agent creates a recurring wake-up schedule. Validates the cron expression via `croniter`, stores in `darwin_cron_jobs`, returns `{ cron_id, next_run_utc }`. Called by the Hermes built-in `cronjob` tool wired to the Darwin God Layer.
+- `DELETE /darwins/{id}/cron/{name}` — agent cancels a named cron job
+- `GET /darwins/{id}/cron` — agent lists its active cron jobs
+
+**Database**
+- `db/migrations/002_hermes_capabilities.sql`:
+  - `llm_calls` table — per-call cost log for Token ROI dashboard
+  - `session_costs` view — aggregate cost roll-up per session (total tokens, total USD, call count)
+  - `darwin_cron_jobs` table — agent-scheduled recurring wake-ups with `next_run_at` index
+
+### Changed
+
+- `pyproject.toml` — added `croniter>=2.0.0` dependency (cron expression validation)
+
 ---
 
 ## [0.1.0] — 2026-05-02
