@@ -23,18 +23,48 @@ class TelemetryStreamRequest(BaseModel):
 
 
 VALID_EVENT_TYPES = frozenset({
+    # Agent lifecycle
     "AGENT_SPAWNED", "AGENT_WOKE", "AGENT_HIBERNATED", "AGENT_TERMINATED",
-    "THOUGHT", "TOOL_CALL", "TOOL_RESULT", "LLM_INFERENCE",
+    "AGENT_KILLED", "SESSION_ENDED",
+
+    # Cognitive events
+    "THOUGHT", "LLM_INFERENCE",
+
+    # Tool layer
+    "TOOL_CALL", "TOOL_RESULT",
+
+    # Sub-agents (neurons + delegate_task)
     "NEURON_SPAWNED", "NEURON_COMPLETED", "NEURON_FAILED", "SYNAPTIC_INTEGRATION",
+    "DELEGATE_SPAWNED", "DELEGATE_COMPLETED",
+
+    # Code execution
+    "CODE_EXEC_START", "CODE_EXEC_END",
+
+    # Browser & vision
     "BROWSER_FETCH", "BROWSER_SESSION_OPEN", "BROWSER_SCREENSHOT",
     "BROWSER_CLICK", "BROWSER_TYPE", "BROWSER_SESSION_CLOSE",
+
+    # Finance
     "LEDGER_DEBIT", "LEDGER_CREDIT", "VCC_INJECTED", "USDC_TX",
+
+    # Human-in-the-loop
     "ASK_HUMAN_SENT", "ASK_HUMAN_RESOLVED",
     "APPROVAL_REQUESTED", "APPROVAL_GRANTED", "APPROVAL_DENIED",
     "CAPTCHA_DELEGATED", "CAPTCHA_SOLVED",
-    "SKILL_CREATED", "SKILL_LOADED", "EPISODIC_SUMMARY_WRITTEN",
+
+    # Memory
+    "SKILL_CREATED", "SKILL_LOADED", "SKILL_EXECUTED",
+    "EPISODIC_SUMMARY_WRITTEN", "MEMORY_COMPRESSED",
     "ENTITY_CREATED", "ENTITY_UPDATED",
+
+    # Safety & telemetry
     "CIRCUIT_BREAKER_TRIPPED",
+    "PROVIDER_ROTATED",
+
+    # Scheduling
+    "CRON_SCHEDULED", "CRON_CANCELLED", "CRON_FIRED",
+
+    # Control plane
     "UPLINK_INJECTED", "CONFIG_UPDATED",
 })
 
@@ -70,6 +100,20 @@ class CircuitBreakerTripRequest(BaseModel):
         ..., description="metabolic_runaway | credential_stuffing | ddos | captcha_loop"
     )
     evidence: dict[str, Any] = Field(default_factory=dict)
+
+
+class LLMCallRequest(BaseModel):
+    darwin_id: str
+    session_id: str
+    model: str
+    provider: str = "anthropic"
+    input_tokens: int = Field(..., ge=0)
+    output_tokens: int = Field(..., ge=0)
+    cache_read_tokens: int = Field(default=0, ge=0)
+    reasoning_tokens: int = Field(default=0, ge=0)
+    cost_usd: float = Field(..., ge=0)
+    duration_ms: int = Field(default=0, ge=0)
+    turn_id: str | None = None
 
 
 class TelemetryHistoryBucket(BaseModel):
