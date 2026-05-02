@@ -21,6 +21,7 @@ dependencies = [
     "modal>=0.64.0",
     "python-dotenv>=1.0.0",
     "structlog>=24.2.0",
+    "croniter>=2.0.0",
 ]
 
 [dependency-groups]
