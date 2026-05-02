@@ -1,8 +1,8 @@
 [project]
 name = "darwin-backend"
 version = "0.1.0"
-description = "Darwin Agents — The God Layer. FastAPI orchestrator for autonomous economic agents."
-requires-python = ">=3.11"
+description = "Darwin Agents — The God Layer (Phase 1 MVP)"
+requires-python = ">=3.12"
 
 dependencies = [
     "fastapi[standard]>=0.115.0",
@@ -10,42 +10,44 @@ dependencies = [
     "pydantic>=2.7.0",
     "pydantic-settings>=2.3.0",
     "supabase>=2.5.0",
+    "asyncpg>=0.29.0",
     "redis[hiredis]>=5.0.0",
+    "celery[redis,gevent]>=5.4.0",
     "httpx>=0.27.0",
     "python-jose[cryptography]>=3.3.0",
-    "passlib[bcrypt]>=1.7.4",
-    "cryptography>=42.0.0",
-    "python-multipart>=0.0.9",
-    "celery[redis]>=5.4.0",
-    "modal>=0.64.0",
     "stripe>=9.12.0",
+    "anthropic>=0.28.0",
+    "openai>=1.40.0",
+    "modal>=0.64.0",
     "python-dotenv>=1.0.0",
     "structlog>=24.2.0",
-    "opentelemetry-api>=1.25.0",
-    "opentelemetry-sdk>=1.25.0",
-    "opentelemetry-instrumentation-fastapi>=0.46b0",
-    "asyncpg>=0.29.0",
-    "tenacity>=8.3.0",
 ]
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
     "pytest>=8.2.0",
     "pytest-asyncio>=0.23.0",
     "httpx>=0.27.0",
     "ruff>=0.4.0",
     "mypy>=1.10.0",
+    "fakeredis>=2.35.1",
+    "freezegun>=1.5.5",
+    "pytest-mock>=3.15.1",
 ]
+
+[tool.uv]
+package = false
 
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = ["B008"]   # FastAPI Depends() in defaults
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.12"
 strict = true
 ignore_missing_imports = true
 
