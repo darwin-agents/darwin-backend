@@ -24,7 +24,7 @@ class Settings(BaseSettings):
 
     # ── Supabase ──────────────────────────────────────────────────────────────
     supabase_url: str = Field(...)
-    supabase_anon_key: SecretStr = Field(...)
+    supabase_secret_key: SecretStr = Field(...)
     supabase_service_role_key: SecretStr = Field(...)
     supabase_jwt_secret: SecretStr = Field(...)
 
