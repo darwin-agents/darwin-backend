@@ -352,6 +352,115 @@ async def uplink(
     return {"injected": True}
 
 
+@router.post("/{darwin_id}/cron", status_code=status.HTTP_201_CREATED)
+async def create_cron_job(
+    darwin_id: str,
+    body: dict,
+    agent: CurrentAgent,
+    pool: PoolDep,
+    settings: SettingsDep,
+) -> dict:
+    """
+    Schedule a recurring cron wake-up for this Darwin.
+    Called by the agent's schedule_cron() tool.
+
+    Body: { "name": str, "cron_expr": str, "wake_prompt": str, "enabled": bool }
+    """
+    if agent["darwin_id"] != darwin_id:
+        raise HTTPException(status_code=403, detail={"error": "forbidden"})
+
+    import croniter
+    from datetime import datetime, timezone
+
+    name = body.get("name", "")
+    cron_expr = body.get("cron_expr", "")
+    wake_prompt = body.get("wake_prompt", "Scheduled check-in.")
+    enabled = body.get("enabled", True)
+
+    # Validate cron expression
+    try:
+        it = croniter.croniter(cron_expr, datetime.now(timezone.utc))
+        next_run = it.get_next(datetime)
+    except Exception:
+        raise HTTPException(status_code=422, detail={"error": "invalid_cron_expression"})
+
+    async with pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            INSERT INTO darwin_cron_jobs (darwin_id, name, cron_expr, wake_prompt, enabled, next_run_at)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            ON CONFLICT (darwin_id, name)
+            DO UPDATE SET cron_expr = EXCLUDED.cron_expr,
+                          wake_prompt = EXCLUDED.wake_prompt,
+                          enabled = EXCLUDED.enabled,
+                          next_run_at = EXCLUDED.next_run_at,
+                          updated_at = now()
+            RETURNING id, next_run_at
+            """,
+            darwin_id, name, cron_expr, wake_prompt, enabled, next_run,
+        )
+
+    canvas = CanvasService(pool)
+    asyncio.create_task(canvas.push_event(
+        darwin_id=darwin_id,
+        session_id=body.get("session_id", str(uuid4())),
+        event_type="CRON_SCHEDULED",
+        payload={"name": name, "cron_expr": cron_expr, "next_run_at": str(next_run)},
+    ))
+    return {
+        "cron_id": str(row["id"]),
+        "next_run_utc": row["next_run_at"].isoformat(),
+    }
+
+
+@router.delete("/{darwin_id}/cron/{name}", status_code=status.HTTP_200_OK)
+async def cancel_cron_job(
+    darwin_id: str,
+    name: str,
+    agent: CurrentAgent,
+    pool: PoolDep,
+) -> dict:
+    """Cancel a named cron job."""
+    if agent["darwin_id"] != darwin_id:
+        raise HTTPException(status_code=403, detail={"error": "forbidden"})
+
+    async with pool.acquire() as conn:
+        result = await conn.execute(
+            "UPDATE darwin_cron_jobs SET enabled = FALSE WHERE darwin_id = $1 AND name = $2",
+            darwin_id, name,
+        )
+    return {"cancelled": result == "UPDATE 1"}
+
+
+@router.get("/{darwin_id}/cron", status_code=status.HTTP_200_OK)
+async def list_cron_jobs(
+    darwin_id: str,
+    agent: CurrentAgent,
+    pool: PoolDep,
+) -> list[dict]:
+    """List all cron jobs for this Darwin."""
+    if agent["darwin_id"] != darwin_id:
+        raise HTTPException(status_code=403, detail={"error": "forbidden"})
+
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            "SELECT id, name, cron_expr, wake_prompt, enabled, next_run_at "
+            "FROM darwin_cron_jobs WHERE darwin_id = $1 ORDER BY created_at DESC",
+            darwin_id,
+        )
+    return [
+        {
+            "cron_id": str(r["id"]),
+            "name": r["name"],
+            "cron_expr": r["cron_expr"],
+            "wake_prompt": r["wake_prompt"],
+            "enabled": r["enabled"],
+            "next_run_utc": r["next_run_at"].isoformat() if r["next_run_at"] else None,
+        }
+        for r in rows
+    ]
+
+
 @router.patch("/{darwin_id}/config", status_code=status.HTTP_200_OK)
 async def patch_config(
     darwin_id: str,
