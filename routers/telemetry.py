@@ -15,6 +15,7 @@ from schemas.telemetry import (
     CanvasEventRequest,
     CircuitBreakerTripRequest,
     EntityPushRequest,
+    LLMCallRequest,
     TelemetryStreamRequest,
     VALID_EVENT_TYPES,
 )
@@ -143,6 +144,59 @@ async def trip_circuit_breaker(
     from workers.telemetry_worker import _trip
     asyncio.create_task(_trip(body.darwin_id, body.trigger, pool, settings))
     return {"tripped": True}
+
+
+@router.post("/llm-call", status_code=status.HTTP_201_CREATED)
+async def record_llm_call(
+    body: LLMCallRequest,
+    agent: CurrentAgent,
+    pool: PoolDep,
+    settings: SettingsDep,
+) -> dict:
+    """
+    Agent records an LLM API call for cost tracking.
+    Fired by HooksManager.post_llm_call() after every inference.
+    Updates the session cost accumulator and feeds the Token ROI dashboard.
+    """
+    if agent["darwin_id"] != body.darwin_id:
+        raise HTTPException(status_code=403, detail={"error": "forbidden"})
+
+    async with pool.acquire() as conn:
+        await conn.execute(
+            """
+            INSERT INTO llm_calls
+                (darwin_id, session_id, model, provider, input_tokens, output_tokens,
+                 cache_read_tokens, reasoning_tokens, cost_usd, duration_ms, turn_id, created_at)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,now())
+            ON CONFLICT DO NOTHING
+            """,
+            body.darwin_id, body.session_id, body.model, body.provider,
+            body.input_tokens, body.output_tokens, body.cache_read_tokens,
+            body.reasoning_tokens, body.cost_usd, body.duration_ms, body.turn_id,
+        )
+
+    # Push LLM_INFERENCE canvas event for the Mental Replay overlay
+    canvas = CanvasService(pool)
+    import asyncio as _asyncio
+    _asyncio.create_task(canvas.push_event(
+        darwin_id=body.darwin_id,
+        session_id=body.session_id,
+        event_type="LLM_INFERENCE",
+        payload={
+            "model": body.model,
+            "provider": body.provider,
+            "input_tokens": body.input_tokens,
+            "output_tokens": body.output_tokens,
+            "cache_read_tokens": body.cache_read_tokens,
+            "reasoning_tokens": body.reasoning_tokens,
+            "cost_usd": body.cost_usd,
+            "duration_ms": body.duration_ms,
+            "turn_id": body.turn_id,
+        },
+        token_cost=body.input_tokens + body.output_tokens,
+        fiat_cost=body.cost_usd,
+    ))
+    return {"recorded": True}
 
 
 @router.get("/{darwin_id}/history")
