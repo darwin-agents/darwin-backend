@@ -202,3 +202,100 @@ class TestTelemetryRoutes:
     def test_history_requires_human_jwt(self, client):
         res = client.get("/api/v1/telemetry/agent-1/history")
         assert res.status_code in (401, 403, 422)
+
+
+# ── THOUGHT model validation ───────────────────────────────────────────────────
+
+class TestThoughtModelValidation:
+    """The /stream-event endpoint must enforce model presence on THOUGHT events."""
+
+    def test_thought_without_model_returns_422(self, client):
+        res = client.post(
+            "/api/v1/telemetry/stream-event",
+            headers=agent_headers(),
+            json={
+                "darwin_id": "agent-test-uuid",
+                "session_id": "session-test-uuid",
+                "event_type": "THOUGHT",
+                "payload": {"content": "I am thinking..."},
+                "timestamp_ms": 1_700_000_000_000,
+            },
+        )
+        assert res.status_code == 422
+        assert "model" in res.json()["detail"]["error"]
+
+    def test_thought_with_model_passes_validation(self, client):
+        with patch("services.canvas_service.CanvasService.push_event", new_callable=AsyncMock) as mock_push:
+            mock_push.return_value = "evt-abc123"
+            res = client.post(
+                "/api/v1/telemetry/stream-event",
+                headers=agent_headers(),
+                json={
+                    "darwin_id": "agent-test-uuid",
+                    "session_id": "session-test-uuid",
+                    "event_type": "THOUGHT",
+                    "payload": {
+                        "content": "I will spawn two researcher neurons.",
+                        "model": "claude-sonnet-4-6",
+                        "prompt_tokens": 1280,
+                        "completion_tokens": 80,
+                        "latency_ms": 1100,
+                    },
+                    "timestamp_ms": 1_700_000_000_000,
+                },
+            )
+        assert res.status_code == 201
+
+    def test_thought_with_empty_model_string_returns_422(self, client):
+        res = client.post(
+            "/api/v1/telemetry/stream-event",
+            headers=agent_headers(),
+            json={
+                "darwin_id": "agent-test-uuid",
+                "session_id": "session-test-uuid",
+                "event_type": "THOUGHT",
+                "payload": {"content": "Thinking...", "model": ""},
+                "timestamp_ms": 1_700_000_000_000,
+            },
+        )
+        assert res.status_code == 422
+
+    def test_non_thought_event_without_model_passes_validation(self, client):
+        """TOOL_CALL events don't need a model field."""
+        with patch("services.canvas_service.CanvasService.push_event", new_callable=AsyncMock) as mock_push:
+            mock_push.return_value = "evt-def456"
+            res = client.post(
+                "/api/v1/telemetry/stream-event",
+                headers=agent_headers(),
+                json={
+                    "darwin_id": "agent-test-uuid",
+                    "session_id": "session-test-uuid",
+                    "event_type": "TOOL_CALL",
+                    "payload": {"tool_name": "web_search", "args_preview": "{}"},
+                    "timestamp_ms": 1_700_000_000_000,
+                },
+            )
+        assert res.status_code == 201
+
+    def test_neuron_spawned_with_model_passes_validation(self, client):
+        with patch("services.canvas_service.CanvasService.push_event", new_callable=AsyncMock) as mock_push:
+            mock_push.return_value = "evt-ghi789"
+            res = client.post(
+                "/api/v1/telemetry/stream-event",
+                headers=agent_headers(),
+                json={
+                    "darwin_id": "agent-test-uuid",
+                    "session_id": "session-test-uuid",
+                    "event_type": "NEURON_SPAWNED",
+                    "neuron_id": "researcher_A",
+                    "payload": {
+                        "neuron_id": "researcher_A",
+                        "task": "Scrape competitor pricing",
+                        "parent_event_id": "",
+                        "model": "claude-haiku-4-5",
+                        "model_reason": "Repetitive extraction — Haiku sufficient",
+                    },
+                    "timestamp_ms": 1_700_000_000_000,
+                },
+            )
+        assert res.status_code == 201
