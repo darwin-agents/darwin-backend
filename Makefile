@@ -8,7 +8,7 @@ PYTEST_ARGS ?=
 
 .DEFAULT_GOAL := help
 
-.PHONY: help sync dev run prod worker beat test lint format typecheck check clean docker-build
+.PHONY: help install sync dev run prod worker beat test lint format typecheck check clean docker-build
 
 help: ## Show this help
 	@echo "Darwin backend (uv)"
@@ -17,6 +17,8 @@ help: ## Show this help
 
 sync: ## Install/update deps from uv.lock (includes dev group by default)
 	$(UV) sync
+
+install: sync ## Same as sync (common convention)
 
 dev: ## FastAPI with hot reload (default PORT=8000; override: PORT=8080)
 	$(UV) run uvicorn main:app --reload --port $(PORT)

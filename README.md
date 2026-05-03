@@ -113,7 +113,7 @@ cd darwin-backend
 
 # Install all dependencies (including dev group)
 uv sync
-# equivalent: make sync
+# equivalent: make sync   or   make install
 
 # Copy and fill in env vars
 cp .env.example .env
@@ -121,7 +121,7 @@ cp .env.example .env
 
 ## Makefile
 
-The `Makefile` wraps the same `uv` commands documented below. From `darwin-backend/`, run **`make help`** for the full list. Common targets: `make sync`, `make dev` (or `make run`), `make worker`, `make beat`, `make test`, `make lint`, `make format`, `make typecheck`, `make check` (lint + types + tests), `make clean`, `make docker-build`. Override **`PORT`**, **`HOST`**, or **`PYTEST_ARGS`** on the command line when needed (for example `make dev PORT=8080` or `make test PYTEST_ARGS="tests/test_finance.py -v"`).
+The `Makefile` wraps the same `uv` commands documented below. From `darwin-backend/`, run **`make help`** for the full list. Common targets: `make install` / `make sync`, `make dev` (or `make run`), `make worker`, `make beat`, `make test`, `make lint`, `make format`, `make typecheck`, `make check` (lint + types + tests), `make clean`, `make docker-build`. Override **`PORT`**, **`HOST`**, or **`PYTEST_ARGS`** on the command line when needed (for example `make dev PORT=8080` or `make test PYTEST_ARGS="tests/test_finance.py -v"`).
 
 Apply the database schema to your Supabase project:
 
