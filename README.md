@@ -68,7 +68,7 @@ darwin-backend/
 │   ├── modal_service.py       # Modal SDK — spawn, JWT revocation (kill signal), uplink pub/sub
 │   ├── telegram_service.py    # Telegram Bot API — alerts, approvals, CAPTCHA links
 │   ├── intent_scan_service.py # Claude Haiku pre-flight abuse classifier
-│   └── langsmith_service.py   # Trace fetch + 5-min Redis cache (Mental Replay) — TODO: migrate to Langfuse
+│   └── langfuse_service.py    # Langfuse REST trace fetch + 5-min Redis cache (Mental Replay)
 │
 ├── workers/
 │   ├── app.py                 # Celery app — broker, queues, Beat schedule
@@ -92,6 +92,7 @@ darwin-backend/
 │
 ├── pyproject.toml             # uv project — runtime deps + dev group
 ├── uv.lock                    # Pinned lockfile (committed)
+├── Makefile                   # uv workflow shortcuts (`make help`)
 ├── Dockerfile                 # uv-based multi-stage build (Python 3.12-slim)
 └── .env.example               # All required env vars documented
 ```
@@ -112,10 +113,15 @@ cd darwin-backend
 
 # Install all dependencies (including dev group)
 uv sync
+# equivalent: make sync
 
 # Copy and fill in env vars
 cp .env.example .env
 ```
+
+## Makefile
+
+The `Makefile` wraps the same `uv` commands documented below. From `darwin-backend/`, run **`make help`** for the full list. Common targets: `make sync`, `make dev` (or `make run`), `make worker`, `make beat`, `make test`, `make lint`, `make format`, `make typecheck`, `make check` (lint + types + tests), `make clean`, `make docker-build`. Override **`PORT`**, **`HOST`**, or **`PYTEST_ARGS`** on the command line when needed (for example `make dev PORT=8080` or `make test PYTEST_ARGS="tests/test_finance.py -v"`).
 
 Apply the database schema to your Supabase project:
 
@@ -128,6 +134,8 @@ psql $DATABASE_URL -f db/migrations/001_initial.sql
 ```
 
 ## Running
+
+Equivalent **`make`** targets are described in the [Makefile](#makefile) section.
 
 **API server (development with hot reload):**
 

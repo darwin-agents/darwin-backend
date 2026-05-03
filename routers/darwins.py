@@ -8,12 +8,12 @@ All FSM state transitions are enforced here. The only valid paths are:
 from __future__ import annotations
 
 import asyncio
+from datetime import UTC
 from uuid import UUID, uuid4
 
 import redis.asyncio as aioredis
 from fastapi import APIRouter, HTTPException, status
 
-from config import Settings
 from deps import CurrentAgent, CurrentUser, PoolDep, SettingsDep, mint_agent_jwt
 from schemas.agents import (
     AgentStateResponse,
@@ -25,6 +25,7 @@ from schemas.agents import (
 )
 from services.canvas_service import CanvasService
 from services.intent_scan_service import IntentScanService
+from services.langfuse_service import LangfuseService
 from services.modal_service import ModalService
 from services.telegram_service import TelegramService
 
@@ -188,14 +189,14 @@ async def get_logs(
     user: CurrentUser = None,  # type: ignore[assignment]
     settings: SettingsDep = None,  # type: ignore[assignment]
 ) -> dict:
-    """Fetch structured thought log from LangSmith (cached 5 min in Redis)."""
-    import redis.asyncio as aioredis
-    from services.langsmith_service import LangSmithService
-
+    """Fetch structured thought log from Langfuse (cached 5 min in Redis)."""
     redis = aioredis.from_url(settings.redis_url, decode_responses=True)
-    ls = LangSmithService(settings, redis)
-    trace = await ls.get_trace(session_id, neuron_id)
-    return {"session_id": session_id, "neuron_id": neuron_id, "trace": trace}
+    try:
+        lf = LangfuseService(settings, redis)
+        trace = await lf.get_trace(darwin_id, session_id, neuron_id)
+        return {"session_id": session_id, "neuron_id": neuron_id, "trace": trace}
+    finally:
+        await redis.aclose()
 
 
 @router.post("/{darwin_id}/hibernate", status_code=status.HTTP_200_OK)
@@ -369,8 +370,9 @@ async def create_cron_job(
     if agent["darwin_id"] != darwin_id:
         raise HTTPException(status_code=403, detail={"error": "forbidden"})
 
+    from datetime import datetime
+
     import croniter
-    from datetime import datetime, timezone
 
     name = body.get("name", "")
     cron_expr = body.get("cron_expr", "")
@@ -379,7 +381,7 @@ async def create_cron_job(
 
     # Validate cron expression
     try:
-        it = croniter.croniter(cron_expr, datetime.now(timezone.utc))
+        it = croniter.croniter(cron_expr, datetime.now(UTC))
         next_run = it.get_next(datetime)
     except Exception:
         raise HTTPException(status_code=422, detail={"error": "invalid_cron_expression"})
@@ -487,6 +489,7 @@ async def patch_config(
 
     if body.budget_injection is not None:
         from decimal import Decimal
+
         from schemas.finance import LedgerUpdateRequest
         from services.ledger_service import LedgerService
 

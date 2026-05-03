@@ -49,7 +49,7 @@ class Settings(BaseSettings):
     # ── Modal ─────────────────────────────────────────────────────────────────
     modal_token_id: SecretStr = Field(...)
     modal_token_secret: SecretStr = Field(...)
-    modal_webhook_secret: SecretStr = Field(default="")
+    modal_webhook_secret: SecretStr = Field(default=SecretStr(""))
 
     # ── Telegram ──────────────────────────────────────────────────────────────
     telegram_bot_token: SecretStr = Field(...)
@@ -58,25 +58,29 @@ class Settings(BaseSettings):
     # ── Stripe ────────────────────────────────────────────────────────────────
     stripe_webhook_secret: SecretStr = Field(...)
 
-    # ── LangSmith / Phoenix ───────────────────────────────────────────────────
-    langsmith_api_key: SecretStr = Field(default="")
-    langchain_project: str = "darwin-production"
+    # ── Langfuse (Mental Replay — matches Hermes observability/langfuse plugin) ─
+    langfuse_public_key: SecretStr = Field(default=SecretStr(""))
+    langfuse_secret_key: SecretStr = Field(default=SecretStr(""))
+    langfuse_host: str = Field(
+        default="https://cloud.langfuse.com",
+        description="Langfuse API base (EU cloud, US/JP regions, or self-hosted origin)",
+    )
 
     # ── Browserbase ───────────────────────────────────────────────────────────
-    browserbase_api_key: SecretStr = Field(default="")
+    browserbase_api_key: SecretStr = Field(default=SecretStr(""))
     browserbase_project_id: str = Field(default="")
 
     # ── Redis ─────────────────────────────────────────────────────────────────
     redis_url: str = Field(default="redis://localhost:6379/0")
 
     # ── OpenAI (embeddings + intent scan fallback) ────────────────────────────
-    openai_api_key: SecretStr = Field(default="")
+    openai_api_key: SecretStr = Field(default=SecretStr(""))
 
     # ── LLM provider key pools (gateway multiplexing) ────────────────────────
-    anthropic_api_key_1: SecretStr = Field(default="")
-    anthropic_api_key_2: SecretStr = Field(default="")
-    openai_api_key_1: SecretStr = Field(default="")
-    openai_api_key_2: SecretStr = Field(default="")
+    anthropic_api_key_1: SecretStr = Field(default=SecretStr(""))
+    anthropic_api_key_2: SecretStr = Field(default=SecretStr(""))
+    openai_api_key_1: SecretStr = Field(default=SecretStr(""))
+    openai_api_key_2: SecretStr = Field(default=SecretStr(""))
 
     # ── CORS ──────────────────────────────────────────────────────────────────
     cors_origins: list[str] = ["http://localhost:3000"]

@@ -12,10 +12,10 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ### Changed
 
 - **Breaking:** `SUPABASE_SERVICE_ROLE_KEY` removed. Use `SUPABASE_SECRET_KEY` only — set it to your project’s **secret** API key (`sb_secret_...`) or, during migration, the legacy JWT `service_role` value (Supabase treats both as elevated `apikey` credentials). `get_supabase()` now initializes the client with `supabase_secret_key`.
+- **Breaking (env):** Mental Replay trace fetching now uses **Langfuse** instead of LangSmith. Replace `LANGSMITH_API_KEY` and `LANGCHAIN_PROJECT` with `LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, and optional `LANGFUSE_HOST` (default `https://cloud.langfuse.com`). `GET /darwins/{id}/logs` queries `GET /api/public/traces` using Langfuse session id `{darwin_id}::{session_id}`, matching Hermes `langfuse.session_name` in `darwin-agent/config/config.yaml.j2`. Implementation: `services/langfuse_service.py` (removed `langsmith_service.py`).
 
 ### Planned
 
-- `services/langsmith_service.py` → rename to `langfuse_service.py` and migrate Mental Replay trace fetching from LangSmith SDK to Langfuse SDK. The agent now emits traces to Langfuse via the Hermes `observability/langfuse` plugin; the backend's Mental Replay endpoint should query Langfuse instead of LangSmith.
 - `schemas/telemetry.py` — update `VALID_EVENT_TYPES` as new canvas event types are discovered.
 
 ---
