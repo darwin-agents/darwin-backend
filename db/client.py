@@ -41,7 +41,7 @@ async def get_supabase() -> AsyncClient:
         settings = get_settings()
         _supabase = await acreate_client(
             settings.supabase_url,
-            settings.supabase_service_role_key.get_secret_value(),
+            settings.supabase_secret_key.get_secret_value(),
         )
     return _supabase
 

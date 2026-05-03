@@ -25,7 +25,6 @@ _AGENT_JWT_SECRET    = "test-agent-jwt-secret-min-32chars"
 os.environ.update(
     SUPABASE_URL="https://test.supabase.co",
     SUPABASE_SECRET_KEY="test-secret-key",
-    SUPABASE_SERVICE_ROLE_KEY="test-service-role-key",
     SUPABASE_JWT_SECRET=_SUPABASE_JWT_SECRET,
     DATABASE_URL="postgresql://test:test@localhost/test",
     AGENT_JWT_SECRET=_AGENT_JWT_SECRET,

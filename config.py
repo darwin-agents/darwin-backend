@@ -5,7 +5,7 @@ from __future__ import annotations
 from functools import lru_cache
 from typing import Literal
 
-from pydantic import Field, SecretStr, field_validator
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -24,8 +24,10 @@ class Settings(BaseSettings):
 
     # ── Supabase ──────────────────────────────────────────────────────────────
     supabase_url: str = Field(...)
-    supabase_secret_key: SecretStr = Field(...)
-    supabase_service_role_key: SecretStr = Field(...)
+    supabase_secret_key: SecretStr = Field(
+        ...,
+        description="Elevated server API key: sb_secret_... (preferred) or legacy JWT service_role",
+    )
     supabase_jwt_secret: SecretStr = Field(...)
 
     # ── PostgreSQL (direct asyncpg connection for FOR UPDATE locks) ───────────
