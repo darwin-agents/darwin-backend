@@ -9,6 +9,10 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Changed
+
+- **Breaking:** `SUPABASE_SERVICE_ROLE_KEY` removed. Use `SUPABASE_SECRET_KEY` only — set it to your project’s **secret** API key (`sb_secret_...`) or, during migration, the legacy JWT `service_role` value (Supabase treats both as elevated `apikey` credentials). `get_supabase()` now initializes the client with `supabase_secret_key`.
+
 ### Planned
 
 - `services/langsmith_service.py` → rename to `langfuse_service.py` and migrate Mental Replay trace fetching from LangSmith SDK to Langfuse SDK. The agent now emits traces to Langfuse via the Hermes `observability/langfuse` plugin; the backend's Mental Replay endpoint should query Langfuse instead of LangSmith.

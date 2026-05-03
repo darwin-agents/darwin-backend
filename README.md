@@ -168,8 +168,7 @@ uv run mypy .
 | Variable | Required | Description |
 | --- | --- | --- |
 | `SUPABASE_URL` | ✅ | Supabase project URL |
-| `SUPABASE_SECRET_KEY` | ✅ | Supabase publishable API key (same credential class as `SUPABASE_PUBLISHABLE_KEY` in the Nuxt app). Required by `Settings`; keep on backend hosts only — **not** the service role. |
-| `SUPABASE_SERVICE_ROLE_KEY` | ✅ | Service role key — bypasses RLS for server ops |
+| `SUPABASE_SECRET_KEY` | ✅ | Elevated server API key (`sb_secret_...` from Dashboard → API Keys). Same privilege class as the legacy JWT `service_role` key; Supabase accepts either until legacy keys are removed ([API keys](https://supabase.com/docs/guides/getting-started/api-keys)). Backend only — never expose to the frontend. |
 | `SUPABASE_JWT_SECRET` | ✅ | Used to validate human JWTs from the frontend |
 | `DATABASE_URL` | ✅ | asyncpg DSN — `postgresql://user:pass@host/db` |
 | `AGENT_JWT_SECRET` | ✅ | Separate secret for agent JWTs — **never expose** |
