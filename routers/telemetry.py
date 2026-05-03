@@ -64,6 +64,9 @@ async def stream_event(
     if body.event_type not in VALID_EVENT_TYPES:
         raise HTTPException(status_code=422, detail={"error": "invalid_event_type"})
 
+    if body.event_type == "THOUGHT" and not body.payload.get("model"):
+        raise HTTPException(status_code=422, detail={"error": "THOUGHT event must include payload.model"})
+
     canvas = CanvasService(pool)
     event_id = await canvas.push_event(
         darwin_id=body.darwin_id,

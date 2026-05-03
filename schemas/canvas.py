@@ -79,6 +79,8 @@ class NeuronSpawnedPayload(BaseModel):
     neuron_id: str
     task: str
     parent_event_id: str
+    model: str
+    model_reason: str | None = None
 
 
 class NeuronCompletedPayload(BaseModel):
