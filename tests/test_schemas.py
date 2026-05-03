@@ -10,6 +10,7 @@ import pytest
 from pydantic import ValidationError
 
 from schemas.agents import SpawnRequest
+from schemas.canvas import NeuronSpawnedPayload, ThoughtPayload
 from schemas.finance import (
     LedgerUpdateRequest,
     MicroTxRequest,
@@ -214,6 +215,88 @@ class TestVaultSubmitRequest:
             payload={"key": "sk_test_xxxx"},
         )
         assert r.secret_type == "stripe_key"
+
+
+# ── NeuronSpawnedPayload ──────────────────────────────────────────────────────
+
+class TestNeuronSpawnedPayload:
+    def test_valid_full_payload(self):
+        p = NeuronSpawnedPayload(
+            neuron_id="researcher_A",
+            task="Scrape competitor pricing",
+            parent_event_id="evt-001",
+            model="claude-haiku-4-5",
+            model_reason="Repetitive extraction — Haiku sufficient",
+        )
+        assert p.model == "claude-haiku-4-5"
+        assert p.model_reason == "Repetitive extraction — Haiku sufficient"
+
+    def test_model_reason_optional_defaults_none(self):
+        p = NeuronSpawnedPayload(
+            neuron_id="researcher_B",
+            task="Find supplier contacts",
+            parent_event_id="evt-002",
+            model="claude-sonnet-4-6",
+        )
+        assert p.model_reason is None
+
+    def test_model_required_missing_raises(self):
+        with pytest.raises(ValidationError):
+            NeuronSpawnedPayload(
+                neuron_id="researcher_C",
+                task="Analyse data",
+                parent_event_id="evt-003",
+                # model omitted
+            )
+
+    @pytest.mark.parametrize("model", [
+        "claude-haiku-4-5",
+        "claude-sonnet-4-6",
+        "claude-opus-4-6",
+        "gpt-4o",
+        "gpt-4o-mini",
+    ])
+    def test_all_supported_models_accepted(self, model: str):
+        p = NeuronSpawnedPayload(
+            neuron_id="n", task="task", parent_event_id="e", model=model,
+        )
+        assert p.model == model
+
+
+# ── ThoughtPayload ────────────────────────────────────────────────────────────
+
+class TestThoughtPayload:
+    def test_valid_full_payload(self):
+        p = ThoughtPayload(
+            content="I will spawn two researcher neurons.",
+            model="claude-sonnet-4-6",
+            prompt_tokens=1280,
+            completion_tokens=80,
+            latency_ms=1100,
+        )
+        assert p.model == "claude-sonnet-4-6"
+        assert p.model_reason is None
+
+    def test_model_reason_optional(self):
+        p = ThoughtPayload(
+            content="Upgrading to Opus for strategy synthesis.",
+            model="claude-opus-4-6",
+            model_reason="High-complexity synthesis — upgrading to Opus",
+            prompt_tokens=2400,
+            completion_tokens=320,
+            latency_ms=3200,
+        )
+        assert p.model_reason == "High-complexity synthesis — upgrading to Opus"
+
+    def test_model_required_missing_raises(self):
+        with pytest.raises(ValidationError):
+            ThoughtPayload(
+                content="Some thought",
+                # model omitted
+                prompt_tokens=100,
+                completion_tokens=20,
+                latency_ms=500,
+            )
 
 
 # ── Health check ──────────────────────────────────────────────────────────────

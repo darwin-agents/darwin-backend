@@ -49,6 +49,7 @@ class AgentTerminatedPayload(BaseModel):
 class ThoughtPayload(BaseModel):
     content: str
     model: str
+    model_reason: str | None = None
     prompt_tokens: int
     completion_tokens: int
     latency_ms: int
