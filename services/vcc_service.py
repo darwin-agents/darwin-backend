@@ -17,6 +17,8 @@ class VCCService:
     def __init__(self, pool: asyncpg.Pool, settings: Settings) -> None:  # type: ignore[type-arg]
         self._pool = pool
         self._key = settings.vcc_encryption_key.get_secret_value()
+        self._bb_api_key = settings.browserbase_api_key.get_secret_value()
+        self._bb_project_id = settings.browserbase_project_id
 
     async def store_vcc(
         self,
@@ -114,12 +116,98 @@ class VCCService:
         expiry: str,
     ) -> None:
         """
-        Open a WebSocket connection to Browserbase and type each VCC field.
-        Implementation calls the Browserbase CDP WebSocket API.
+        Connect to the Browserbase session over CDP, find the active page, and
+        inject each VCC field value using the React-compatible native setter so
+        form validation events fire correctly.  Raw card values are never logged.
         """
-        # TODO: integrate Browserbase CDP typing via httpx WebSocket
-        # This must be implemented without leaking pan/cvv/expiry to logs
-        raise NotImplementedError("Browserbase CDP integration pending")
+        import asyncio
+        import json
+
+        import websockets  # type: ignore[import-untyped]
+
+        cdp_url = (
+            f"wss://connect.browserbase.com"
+            f"?apiKey={self._bb_api_key}&sessionId={session_id}"
+        )
+
+        async with websockets.connect(cdp_url, max_size=10 * 1024 * 1024) as ws:
+            _id = 0
+
+            async def send_cdp(
+                method: str,
+                params: dict | None = None,
+                *,
+                cdp_session: str | None = None,
+            ) -> dict:
+                nonlocal _id
+                _id += 1
+                cmd_id = _id
+                msg: dict = {"id": cmd_id, "method": method}
+                if params:
+                    msg["params"] = params
+                if cdp_session:
+                    msg["sessionId"] = cdp_session
+                await ws.send(json.dumps(msg))
+                # Drain the WebSocket until we receive the reply for this command.
+                # Events (no "id") and replies for other sessions are discarded.
+                while True:
+                    raw = await asyncio.wait_for(ws.recv(), timeout=15.0)
+                    ev: dict = json.loads(raw)
+                    if ev.get("id") != cmd_id:
+                        continue
+                    if "error" in ev:
+                        raise RuntimeError(
+                            f"CDP {method} error: {ev['error']['message']}"
+                        )
+                    return ev.get("result", {})
+
+            # Locate the active page target
+            targets = await send_cdp("Target.getTargets")
+            page = next(
+                (t for t in targets["targetInfos"] if t["type"] == "page"),
+                None,
+            )
+            if page is None:
+                raise RuntimeError("No active page found in Browserbase session")
+
+            # Attach to the page in flattened mode so page-level CDP commands
+            # travel over the same WebSocket connection with a sessionId prefix.
+            attach = await send_cdp(
+                "Target.attachToTarget",
+                {"targetId": page["targetId"], "flatten": True},
+            )
+            page_session: str = attach["sessionId"]
+
+            await send_cdp("Runtime.enable", cdp_session=page_session)
+
+            # Inject each field using the React-compatible native setter.
+            # json.dumps safely escapes selector strings and card values so
+            # special characters don't break the JS expression.
+            for selector, value in (
+                (fields["pan_element"], pan),
+                (fields["cvv_element"], cvv),
+                (fields["expiry_element"], expiry),
+            ):
+                js = (
+                    "(function(sel, val) {"
+                    "  var el = document.querySelector(sel);"
+                    "  if (!el) return false;"
+                    "  var desc = Object.getOwnPropertyDescriptor("
+                    "    HTMLInputElement.prototype, 'value');"
+                    "  if (desc && desc.set) { desc.set.call(el, val); }"
+                    "  else { el.value = val; }"
+                    "  el.dispatchEvent(new Event('input',  {bubbles: true}));"
+                    "  el.dispatchEvent(new Event('change', {bubbles: true}));"
+                    "  return true;"
+                    "})(" + json.dumps(selector) + ", " + json.dumps(value) + ")"
+                )
+                result = await send_cdp(
+                    "Runtime.evaluate",
+                    {"expression": js, "returnByValue": True},
+                    cdp_session=page_session,
+                )
+                if not result.get("result", {}).get("value"):
+                    raise RuntimeError(f"Payment field not found: {selector}")
 
     async def sync_spend_limit(self, darwin_id: str, new_balance: float) -> None:
         """
