@@ -107,6 +107,13 @@ class MockSettings:
         def get_secret_value() -> str:
             return "test-passphrase"
 
+    class browserbase_api_key:
+        @staticmethod
+        def get_secret_value() -> str:
+            return ""
+
+    browserbase_project_id = ""
+
 
 @pytest.mark.asyncio
 async def test_verify_ownership_true_when_matching():
@@ -139,15 +146,17 @@ async def test_store_vcc_does_not_return_pan():
 async def test_decrypt_and_inject_purges_plaintext_on_error():
     """Even if Browserbase injection fails, plaintext must be zeroed out."""
     import gc
+    from unittest.mock import AsyncMock, patch
 
     pool, conn = make_pool(
         fetchrow_returns=[{"pan": "4111111111111111", "cvv": "123", "expiry": "12/27"}]
     )
     svc = VCCService(pool, MockSettings())  # type: ignore[arg-type]
 
-    # _browserbase_type raises NotImplementedError — purge must still happen
-    with pytest.raises(NotImplementedError):
-        await svc.decrypt_and_inject("vcc-ref", "bb_sess", {})
+    with patch.object(VCCService, "_browserbase_type", new_callable=AsyncMock) as mock_bb:
+        mock_bb.side_effect = NotImplementedError()
+        with pytest.raises(NotImplementedError):
+            await svc.decrypt_and_inject("vcc-ref", "bb_sess", {})
 
     # After the call, garbage collect and check no "4111..." string in memory
     gc.collect()

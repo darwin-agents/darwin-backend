@@ -202,8 +202,16 @@ class TestIntentScan:
         pool, conn = make_pool()
         app.dependency_overrides[_get_pool] = lambda: pool
 
-        with patch("services.intent_scan_service.IntentScanService.scan_directive",
-                   new=AsyncMock(return_value=(True, expected_reason))):
+        with (
+            patch(
+                "routers.security.IntentScanService.scan_directive",
+                new=AsyncMock(return_value=(True, expected_reason)),
+            ),
+            patch(
+                "routers.security.TelegramService.send_admin_alert",
+                new=AsyncMock(return_value=None),
+            ),
+        ):
             res = client.post(
                 "/api/v1/security/intent-scan",
                 json={"directive": directive, "user_id": "uid-test"},
@@ -216,8 +224,10 @@ class TestIntentScan:
         pool, _ = make_pool()
         app.dependency_overrides[_get_pool] = lambda: pool
 
-        with patch("services.intent_scan_service.IntentScanService.scan_directive",
-                   new=AsyncMock(return_value=(False, None))):
+        with patch(
+            "routers.security.IntentScanService.scan_directive",
+            new=AsyncMock(return_value=(False, None)),
+        ):
             res = client.post(
                 "/api/v1/security/intent-scan",
                 json={"directive": "Find wholesale suppliers in the pet accessories niche",
