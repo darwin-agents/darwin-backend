@@ -26,7 +26,7 @@ async def upload_skill(
 ) -> dict:
     """
     Ingest a Procedural Skill Document.
-    1. Generate embedding via OpenAI text-embedding-3-small.
+    1. Generate embedding via OpenRouter (see ``openrouter_embedding_model`` in backend config).
     2. Upsert into hermes_skills with pgvector.
     3. Emit SKILL_CREATED canvas event.
     """
@@ -179,17 +179,25 @@ async def pay_royalty(
 
 
 async def _embed(text: str, settings) -> list[float] | None:  # type: ignore[type-ignore]
-    """Generate OpenAI text-embedding-3-small vector. Returns None if no key configured."""
-    key = settings.openai_api_key.get_secret_value()
+    """Generate embedding vector via OpenRouter. Returns None if no key configured."""
+    keys = settings.get_openrouter_keys()
+    key = keys[0] if keys else ""
     if not key:
         return None
 
     import httpx
-    async with httpx.AsyncClient(timeout=15) as client:
-        r = await client.post(
-            "https://api.openai.com/v1/embeddings",
-            headers={"Authorization": f"Bearer {key}"},
-            json={"model": "text-embedding-3-small", "input": text},
+
+    from services.openrouter import embeddings_json, openrouter_headers
+
+    hdrs = openrouter_headers(key, settings.openrouter_http_referer, settings.openrouter_app_title)
+    model = getattr(settings, "openrouter_embedding_model", "openai/text-embedding-3-small")
+
+    async with httpx.AsyncClient(timeout=45.0) as client:
+        emb, _payload = await embeddings_json(
+            client,
+            url=settings.openrouter_base_url,
+            headers=hdrs,
+            model=model,
+            input_text=text,
         )
-        r.raise_for_status()
-        return r.json()["data"][0]["embedding"]
+    return emb

@@ -1,6 +1,6 @@
 [project]
 name = "darwin-backend"
-version = "0.1.0"
+version = "0.2.0"
 description = "Darwin Agents — The God Layer (Phase 1 MVP)"
 requires-python = ">=3.12"
 
@@ -17,8 +17,6 @@ dependencies = [
     "websockets>=12.0",
     "python-jose[cryptography]>=3.3.0",
     "stripe>=9.12.0",
-    "anthropic>=0.28.0",
-    "openai>=1.40.0",
     "modal>=0.64.0",
     "python-dotenv>=1.0.0",
     "structlog>=24.2.0",

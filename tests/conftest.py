@@ -33,8 +33,7 @@ os.environ.update(
     MODAL_TOKEN_SECRET="as-test",
     TELEGRAM_BOT_TOKEN="123456:testbottoken",
     STRIPE_WEBHOOK_SECRET="whsec_test",
-    OPENAI_API_KEY="sk-test",
-    ANTHROPIC_API_KEY_1="sk-ant-test",
+    OPENROUTER_API_KEY_1="sk-or-test-openrouter-key-0123456789",
 )
 
 # ── JWT helpers ───────────────────────────────────────────────────────────────

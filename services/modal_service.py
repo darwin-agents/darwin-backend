@@ -6,6 +6,7 @@ Handles container spawning, kill signals (via Redis), and heartbeat polling.
 
 from __future__ import annotations
 
+import os
 import time
 from datetime import UTC, datetime, timedelta
 
@@ -35,10 +36,21 @@ class ModalService:
         Provisions a fresh Modal micro-VM.
         Returns the Modal call_id for tracking.
         """
+        # Ensure Modal SDK auth is available in-process (local dev often lacks
+        # `modal token new` state but we already have secrets in backend env).
+        os.environ["MODAL_TOKEN_ID"] = self._settings.modal_token_id.get_secret_value()
+        os.environ["MODAL_TOKEN_SECRET"] = self._settings.modal_token_secret.get_secret_value()
+
         import modal
 
-        fn = modal.Function.lookup("darwin-agent", "run_agent")
-        call = fn.spawn(
+        # modal>=0.64 uses Function.from_name; lookup() is no longer available.
+        fn = modal.Function.from_name(
+            self._settings.modal_app_name,
+            self._settings.modal_function_name,
+            environment_name=self._settings.modal_environment_name,
+        )
+        # Use aio spawn from async FastAPI handlers (avoids blocking Modal client).
+        call = await fn.spawn.aio(
             darwin_id=darwin_id,
             session_id=session_id,
             wake_prompt=wake_prompt,

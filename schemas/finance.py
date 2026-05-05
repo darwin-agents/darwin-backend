@@ -18,6 +18,7 @@ TransactionType = Literal[
     "ESCROW_RELEASE",
     "METABOLIC_INJECTION",
     "WITHDRAWAL",
+    "LLM_USAGE_DEBIT",
 ]
 
 

@@ -236,10 +236,10 @@ class TestIntentScan:
         assert res.json()["flagged"] is False
 
     def test_intent_scan_fallback_when_no_api_key(self):
-        """With no Anthropic key, IntentScanService must fail open (not block everything)."""
+        """With no OpenRouter key, IntentScanService must fail open (not block everything)."""
         from unittest.mock import MagicMock
         settings = MagicMock()
-        settings.get_anthropic_keys.return_value = []
+        settings.get_openrouter_keys.return_value = []
         import asyncio
 
         from services.intent_scan_service import IntentScanService
@@ -250,22 +250,33 @@ class TestIntentScan:
         assert flagged is False
         assert reason is None
 
-    async def test_intent_scan_fail_open_on_anthropic_api_error(self) -> None:
-        """Bad or revoked Anthropic keys must not crash spawn — same fail-open as no key."""
-        import anthropic
+    async def test_intent_scan_fail_open_on_openrouter_http_error(self) -> None:
+        """Transport errors to OpenRouter must not crash spawn — same fail-open as no key."""
 
         settings = MagicMock()
-        settings.get_anthropic_keys.return_value = ["sk-ant-invalid"]
+        settings.get_openrouter_keys.return_value = ["sk-or-invalid"]
+        settings.openrouter_intent_scan_model = "anthropic/claude-haiku-4.5"
+        settings.openrouter_base_url = "https://openrouter.ai/api/v1"
+        settings.openrouter_http_referer = None
+        settings.openrouter_app_title = None
+
         from services.intent_scan_service import IntentScanService
+        import httpx
+        from unittest.mock import patch
+
+        class _BadClient:
+            async def __aenter__(self):  # noqa: ANN204
+                return self
+
+            async def __aexit__(self, exc_type, exc, tb):  # noqa: ANN204
+                return False
+
+            async def post(self, *a, **kw):  # noqa: ANN002, ANN003
+                raise httpx.ConnectError("boom")
 
         svc = IntentScanService(settings)
-        svc._client = MagicMock()
-        svc._client.messages.create.side_effect = anthropic.AuthenticationError(
-            "invalid x-api-key",
-            response=MagicMock(status_code=401),
-            body={},
-        )
-        flagged, reason = await svc.scan_directive("Find wholesale suppliers in the niche")
+        with patch("services.intent_scan_service.httpx.AsyncClient", return_value=_BadClient()):
+            flagged, reason = await svc.scan_directive("Find wholesale suppliers in the niche")
         assert flagged is False
         assert reason is None
 

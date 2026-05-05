@@ -48,6 +48,117 @@ def _assert_transition(current: str, target: str, darwin_id: str) -> None:
         )
 
 
+@router.get("/", status_code=status.HTTP_200_OK)
+async def list_darwins(
+    owner_id: str,
+    user: CurrentUser,
+    pool: PoolDep,
+) -> dict:
+    """
+    Compatibility list endpoint used by frontend canvases:
+      GET /darwins/?owner_id=<uuid>
+    """
+    if user["sub"] != owner_id:
+        raise HTTPException(status_code=403, detail={"error": "forbidden"})
+
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            """
+            SELECT id, user_id, name, state, system_prompt, llm_model, tool_set,
+                   vcc_ref, ledger_balance, initial_budget, requires_approval,
+                   spawned_at, last_active_at, terminated_at, created_at,
+                   total_tokens_burned, total_compute_cost, total_revenue, token_roi
+            FROM darwins
+            WHERE user_id = $1
+            ORDER BY created_at DESC
+            """,
+            owner_id,
+        )
+
+    agents = [
+        {
+            # Frontend AgentStateApi compatibility fields
+            "agent_id": str(r["id"]),
+            "name": r["name"],
+            "state": r["state"],
+            "budget_remaining_usd": float(r["ledger_balance"]),
+            "burn_rate_usd_per_hour": 0.0,  # TODO: derive from telemetry buckets
+            "last_active_at": r["last_active_at"].isoformat() if r["last_active_at"] else None,
+            "next_wake_at": None,
+            # Extra fields retained for richer UIs / backwards compatibility
+            "owner_id": str(r["user_id"]),
+            "directive": r["system_prompt"],
+            "llm_model": r["llm_model"],
+            "tool_set": r["tool_set"],
+            "vcc_ref": r["vcc_ref"],
+            "initial_budget": float(r["initial_budget"]),
+            "requires_approval": r["requires_approval"],
+            "spawned_at": r["spawned_at"].isoformat() if r["spawned_at"] else None,
+            "terminated_at": r["terminated_at"].isoformat() if r["terminated_at"] else None,
+            "created_at": r["created_at"].isoformat() if r["created_at"] else None,
+            "total_tokens_burned": int(r["total_tokens_burned"] or 0),
+            "total_compute_cost": float(r["total_compute_cost"] or 0),
+            "total_revenue": float(r["total_revenue"] or 0),
+            "token_roi": float(r["token_roi"]) if r["token_roi"] is not None else None,
+        }
+        for r in rows
+    ]
+    return {"agents": agents, "total": len(agents)}
+
+
+@router.get("/{darwin_id}/events", status_code=status.HTTP_200_OK)
+async def list_events(
+    darwin_id: str,
+    user: CurrentUser,
+    pool: PoolDep,
+    limit: int = 200,
+    order: str = "timestamp_ms.desc",
+) -> dict:
+    """
+    Infinite-canvas event reader compatibility endpoint:
+      GET /darwins/{id}/events?limit=2000&order=timestamp_ms.asc
+    """
+    if order not in ("timestamp_ms.asc", "timestamp_ms.desc"):
+        raise HTTPException(status_code=422, detail={"error": "invalid_order"})
+
+    limit = max(1, min(limit, 5000))
+    direction = "ASC" if order.endswith(".asc") else "DESC"
+
+    async with pool.acquire() as conn:
+        rows = await conn.fetch(
+            f"""
+            SELECT e.id, e.darwin_id, e.session_id, e.parent_event_id, e.neuron_id,
+                   e.event_type, e.payload, e.timestamp_ms, e.token_cost, e.fiat_cost, e.created_at
+            FROM darwin_events e
+            JOIN darwins d ON d.id = e.darwin_id
+            WHERE e.darwin_id = $1::uuid AND d.user_id = $2::uuid
+            ORDER BY e.timestamp_ms {direction}
+            LIMIT $3
+            """,
+            darwin_id,
+            user["sub"],
+            limit,
+        )
+
+    events = [
+        {
+            "id": str(r["id"]),
+            "darwin_id": str(r["darwin_id"]),
+            "session_id": str(r["session_id"]),
+            "parent_event_id": str(r["parent_event_id"]) if r["parent_event_id"] else None,
+            "neuron_id": r["neuron_id"],
+            "event_type": r["event_type"],
+            "payload": r["payload"] or {},
+            "timestamp_ms": int(r["timestamp_ms"]),
+            "token_cost": float(r["token_cost"] or 0),
+            "fiat_cost": float(r["fiat_cost"] or 0),
+            "created_at": r["created_at"].isoformat() if r["created_at"] else None,
+        }
+        for r in rows
+    ]
+    return {"events": events, "total": len(events)}
+
+
 @router.post("/spawn", response_model=SpawnResponse, status_code=status.HTTP_201_CREATED)
 async def spawn_agent(
     body: SpawnRequest,

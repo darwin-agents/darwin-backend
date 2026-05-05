@@ -18,10 +18,10 @@ darwin-agent (Modal ephemeral container)
 
 **Two authentication realms — never cross-accessible:**
 
-| Token | Issued by | Validates against | Can call |
-| --- | --- | --- | --- |
-| Human JWT | Supabase Auth | `SUPABASE_JWT_SECRET` | All human-facing endpoints |
-| Agent JWT | Backend on spawn | `AGENT_JWT_SECRET` | `/finance`, `/telemetry`, `/memory`, `/contracts`, `/assets`, `/audit`, `/gateway`, `/notifications`, `/darwins/{id}/hibernate` |
+| Token     | Issued by        | Validates against     | Can call                                                                                                                        |
+| --------- | ---------------- | --------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| Human JWT | Supabase Auth    | `SUPABASE_JWT_SECRET` | All human-facing endpoints                                                                                                      |
+| Agent JWT | Backend on spawn | `AGENT_JWT_SECRET`    | `/finance`, `/telemetry`, `/memory`, `/contracts`, `/assets`, `/audit`, `/gateway`, `/notifications`, `/darwins/{id}/hibernate` |
 
 **Webhook fast-ack pattern** — every inbound webhook returns `200 OK` in < 10 ms by dropping the payload into Redis, then Celery workers do the actual processing asynchronously.
 
@@ -173,34 +173,39 @@ uv run mypy .
 
 ## Environment variables
 
-| Variable | Required | Description |
-| --- | --- | --- |
-| `SUPABASE_URL` | ✅ | Supabase project URL |
-| `SUPABASE_SECRET_KEY` | ✅ | Elevated server API key (`sb_secret_...` from Dashboard → API Keys). Same privilege class as the legacy JWT `service_role` key; Supabase accepts either until legacy keys are removed ([API keys](https://supabase.com/docs/guides/getting-started/api-keys)). Backend only — never expose to the frontend. |
-| `SUPABASE_JWT_SECRET` | ✅ | Used to validate human JWTs from the frontend |
-| `DATABASE_URL` | ✅ | asyncpg DSN — `postgresql://user:pass@host/db` |
-| `AGENT_JWT_SECRET` | ✅ | Separate secret for agent JWTs — **never expose** |
-| `VCC_ENCRYPTION_KEY` | ✅ | Symmetric passphrase for `pgp_sym_encrypt` (pgcrypto) |
-| `MODAL_TOKEN_ID` | ✅ | Modal API token ID |
-| `MODAL_TOKEN_SECRET` | ✅ | Modal API token secret |
-| `MODAL_WEBHOOK_SECRET` | — | HMAC secret for Modal container lifecycle webhooks |
-| `TELEGRAM_BOT_TOKEN` | ✅ | Telegram Bot API token |
-| `TELEGRAM_ADMIN_CHAT_ID` | — | Chat ID for platform-level admin alerts |
-| `STRIPE_WEBHOOK_SECRET` | ✅ | Stripe webhook signature secret (`whsec_...`) |
-| `LANGFUSE_SECRET_KEY` | — | Langfuse secret key for Mental Replay trace fetching |
-| `LANGFUSE_PUBLIC_KEY` | — | Langfuse public key |
-| `LANGFUSE_HOST` | — | Langfuse base URL (default: `https://cloud.langfuse.com`) |
-| `BROWSERBASE_API_KEY` | — | Browserbase API key for VCC injection relay |
-| `BROWSERBASE_PROJECT_ID` | — | Browserbase project ID |
-| `REDIS_URL` | ✅ | Redis connection string |
-| `OPENAI_API_KEY` | — | OpenAI key for embeddings and intent scan fallback |
-| `ANTHROPIC_API_KEY_1` | — | Anthropic key (gateway pool key 1) |
-| `ANTHROPIC_API_KEY_2` | — | Anthropic key (gateway pool key 2) |
-| `OPENAI_API_KEY_1` | — | OpenAI key (gateway pool key 1) |
-| `OPENAI_API_KEY_2` | — | OpenAI key (gateway pool key 2) |
-| `APP_BASE_URL` | — | Base URL for deep-link generation (default: `https://app.darwin.ai`) |
-| `ENVIRONMENT` | — | `development` \| `staging` \| `production` |
-| `CORS_ORIGINS` | — | JSON list of allowed origins |
+| Variable                       | Required | Description                                                                                                                                                                                                                                                                                                 |
+| ------------------------------ | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SUPABASE_URL`                 | ✅       | Supabase project URL                                                                                                                                                                                                                                                                                        |
+| `SUPABASE_SECRET_KEY`          | ✅       | Elevated server API key (`sb_secret_...` from Dashboard → API Keys). Same privilege class as the legacy JWT `service_role` key; Supabase accepts either until legacy keys are removed ([API keys](https://supabase.com/docs/guides/getting-started/api-keys)). Backend only — never expose to the frontend. |
+| `SUPABASE_JWT_SECRET`          | ✅       | Used to validate human JWTs from the frontend                                                                                                                                                                                                                                                               |
+| `DATABASE_URL`                 | ✅       | asyncpg DSN — `postgresql://user:pass@host/db`                                                                                                                                                                                                                                                              |
+| `AGENT_JWT_SECRET`             | ✅       | Separate secret for agent JWTs — **never expose**                                                                                                                                                                                                                                                           |
+| `VCC_ENCRYPTION_KEY`           | ✅       | Symmetric passphrase for `pgp_sym_encrypt` (pgcrypto)                                                                                                                                                                                                                                                       |
+| `MODAL_TOKEN_ID`               | ✅       | Modal API token ID                                                                                                                                                                                                                                                                                          |
+| `MODAL_TOKEN_SECRET`           | ✅       | Modal API token secret                                                                                                                                                                                                                                                                                      |
+| `MODAL_WEBHOOK_SECRET`         | —        | HMAC secret for Modal container lifecycle webhooks                                                                                                                                                                                                                                                          |
+| `MODAL_APP_NAME`               | —        | Modal app name to spawn (default: `darwin-agent`)                                                                                                                                                                                                                                                           |
+| `MODAL_FUNCTION_NAME`          | —        | Modal function name to spawn (default: `run_agent`)                                                                                                                                                                                                                                                         |
+| `MODAL_ENVIRONMENT_NAME`       | —        | Modal environment name (e.g. `main`, `dev`, `staging`)                                                                                                                                                                                                                                                     |
+| `TELEGRAM_BOT_TOKEN`           | ✅       | Telegram Bot API token                                                                                                                                                                                                                                                                                      |
+| `TELEGRAM_ADMIN_CHAT_ID`       | —        | Chat ID for platform-level admin alerts                                                                                                                                                                                                                                                                     |
+| `STRIPE_WEBHOOK_SECRET`        | ✅       | Stripe webhook signature secret (`whsec_...`)                                                                                                                                                                                                                                                               |
+| `LANGFUSE_SECRET_KEY`          | —        | Langfuse secret key for Mental Replay trace fetching                                                                                                                                                                                                                                                        |
+| `LANGFUSE_PUBLIC_KEY`          | —        | Langfuse public key                                                                                                                                                                                                                                                                                         |
+| `LANGFUSE_HOST`                | —        | Langfuse base URL (default: `https://cloud.langfuse.com`)                                                                                                                                                                                                                                                   |
+| `BROWSERBASE_API_KEY`          | —        | Browserbase API key for VCC injection relay                                                                                                                                                                                                                                                                 |
+| `BROWSERBASE_PROJECT_ID`       | —        | Browserbase project ID                                                                                                                                                                                                                                                                                      |
+| `REDIS_URL`                    | ✅       | Redis connection string                                                                                                                                                                                                                                                                                     |
+| `OPENROUTER_API_KEY_1`         | ✅       | Primary OpenRouter API key (gateway, intent scan, embeddings)                                                                                                                                                                                                                                               |
+| `OPENROUTER_API_KEY_2`         | —        | Optional second key for gateway multiplexing                                                                                                                                                                                                                                                                |
+| `OPENROUTER_BASE_URL`          | —        | Defaults to `https://openrouter.ai/api/v1`                                                                                                                                                                                                                                                                  |
+| `OPENROUTER_INTENT_SCAN_MODEL` | —        | OpenRouter slug for spawn-time intent classifier                                                                                                                                                                                                                                                            |
+| `OPENROUTER_EMBEDDING_MODEL`   | —        | OpenRouter slug for `/memory` pgvector embeddings                                                                                                                                                                                                                                                           |
+| `GATEWAY_MIN_LEDGER_BALANCE`   | —        | Reject `/gateway/inference` when `ledger_balance` ≤ this (USD)                                                                                                                                                                                                                                              |
+| `SESSION_LLM_SPEND_CAP_USD`    | —        | Reject `/telemetry/llm-call` when session cumulative spend exceeds cap (0 = off)                                                                                                                                                                                                                            |
+| `APP_BASE_URL`                 | —        | Base URL for deep-link generation (default: `https://app.darwin.ai`)                                                                                                                                                                                                                                        |
+| `ENVIRONMENT`                  | —        | `development` \| `staging` \| `production`                                                                                                                                                                                                                                                                  |
+| `CORS_ORIGINS`                 | —        | JSON list of allowed origins                                                                                                                                                                                                                                                                                |
 
 ## API overview
 
@@ -208,92 +213,92 @@ All routes are prefixed `/api/v1`. Docs available at `GET /docs` (disabled in pr
 
 ### Human-facing endpoints
 
-| Method | Path | Description |
-| --- | --- | --- |
-| `POST` | `/users/register` | Create account (Supabase Auth proxy) |
-| `POST` | `/users/login` | Sign in, receive JWT |
-| `POST` | `/users/{uid}/vault` | Store encrypted VCC / API keys |
-| `GET` | `/users/{uid}/swarm-state` | Aggregate P&L for the dashboard |
-| `POST` | `/darwins/spawn` | Create and launch a new agent |
-| `GET` | `/darwins/{id}/state` | FSM state + burn rate |
-| `GET` | `/darwins/{id}/logs` | Langfuse thought log for Mental Replay |
-| `POST` | `/darwins/{id}/wake` | Manually wake a hibernating agent |
-| `POST` | `/darwins/{id}/terminate` | Kill switch |
-| `POST` | `/darwins/{id}/uplink` | Inject mid-lifecycle prompt |
-| `PATCH` | `/darwins/{id}/config` | Autonomy toggle + budget injection |
-| `GET` | `/finance/ledger/{id}` | Balance + transaction history |
-| `POST` | `/finance/withdraw` | ACH off-ramp via Stripe Connect |
-| `GET` | `/telemetry/{id}/history` | Burn rate chart data |
-| `GET` | `/identity/{id}/score` | Agent trust score |
-| `POST` | `/firmware/upgrade` | Roll out new agent brain image |
-| `POST` | `/firmware/migrate` | Queue SQLite schema migration |
-| `GET` | `/audit/logs` | Compliance log viewer |
-| `GET` | `/audit/export` | Tax report generation |
-| `GET` | `/assets/{id}` | Download a generated artifact |
+| Method  | Path                       | Description                            |
+| ------- | -------------------------- | -------------------------------------- |
+| `POST`  | `/users/register`          | Create account (Supabase Auth proxy)   |
+| `POST`  | `/users/login`             | Sign in, receive JWT                   |
+| `POST`  | `/users/{uid}/vault`       | Store encrypted VCC / API keys         |
+| `GET`   | `/users/{uid}/swarm-state` | Aggregate P&L for the dashboard        |
+| `POST`  | `/darwins/spawn`           | Create and launch a new agent          |
+| `GET`   | `/darwins/{id}/state`      | FSM state + burn rate                  |
+| `GET`   | `/darwins/{id}/logs`       | Langfuse thought log for Mental Replay |
+| `POST`  | `/darwins/{id}/wake`       | Manually wake a hibernating agent      |
+| `POST`  | `/darwins/{id}/terminate`  | Kill switch                            |
+| `POST`  | `/darwins/{id}/uplink`     | Inject mid-lifecycle prompt            |
+| `PATCH` | `/darwins/{id}/config`     | Autonomy toggle + budget injection     |
+| `GET`   | `/finance/ledger/{id}`     | Balance + transaction history          |
+| `POST`  | `/finance/withdraw`        | ACH off-ramp via Stripe Connect        |
+| `GET`   | `/telemetry/{id}/history`  | Burn rate chart data                   |
+| `GET`   | `/identity/{id}/score`     | Agent trust score                      |
+| `POST`  | `/firmware/upgrade`        | Roll out new agent brain image         |
+| `POST`  | `/firmware/migrate`        | Queue SQLite schema migration          |
+| `GET`   | `/audit/logs`              | Compliance log viewer                  |
+| `GET`   | `/audit/export`            | Tax report generation                  |
+| `GET`   | `/assets/{id}`             | Download a generated artifact          |
 
 ### Agent-facing endpoints (require agent JWT)
 
-| Method | Path | Agent tool |
-| --- | --- | --- |
-| `POST` | `/telemetry/stream` | `post_llm_call` hook (rolling metrics) |
-| `POST` | `/telemetry/stream-event` | all tools (canvas events) |
-| `POST` | `/telemetry/llm-call` | `post_llm_call` hook (per-call cost record) |
-| `POST` | `/telemetry/entity` | `save_entity()` |
-| `POST` | `/telemetry/trip` | circuit breaker |
-| `POST` | `/finance/ledger/update` | `check_ledger()`, `record_expense()` |
-| `POST` | `/finance/inject-payment` | `inject_payment()` |
-| `POST` | `/finance/microtx` | USDC settlement |
-| `POST` | `/darwins/{id}/hibernate` | `hibernate()` |
-| `POST` | `/darwins/{id}/cron` | Hermes `cronjob` tool |
-| `DELETE` | `/darwins/{id}/cron/{name}` | Hermes `cronjob` tool |
-| `GET` | `/darwins/{id}/cron` | Hermes `cronjob` tool |
-| `POST` | `/memory/upload` | `save_skill()` |
-| `POST` | `/memory/query` | `search_skills()` |
-| `POST` | `/memory/royalty` | (automatic on skill use) |
-| `GET` | `/gateway/limits` | `check_quota()` |
-| `POST` | `/gateway/inference` | `llm_call()` |
-| `POST` | `/audit/log` | `log_decision()` |
-| `GET` | `/assets/presigned-url` | `upload_file()` |
-| `POST` | `/assets/index` | `upload_file()` |
-| `POST` | `/contracts/bounty` | `post_bounty()` |
-| `GET` | `/contracts` | `browse_bounties()` |
-| `POST` | `/contracts/{id}/lock` | `accept_contract()` |
-| `POST` | `/contracts/{id}/settle` | `settle_contract()` |
-| `POST` | `/notifications/send` | `ask_human()` |
-| `POST` | `/notifications/session-link` | `captcha_delegate()` |
+| Method   | Path                          | Agent tool                                  |
+| -------- | ----------------------------- | ------------------------------------------- |
+| `POST`   | `/telemetry/stream`           | `post_llm_call` hook (rolling metrics)      |
+| `POST`   | `/telemetry/stream-event`     | all tools (canvas events)                   |
+| `POST`   | `/telemetry/llm-call`         | `post_llm_call` hook (per-call cost record) |
+| `POST`   | `/telemetry/entity`           | `save_entity()`                             |
+| `POST`   | `/telemetry/trip`             | circuit breaker                             |
+| `POST`   | `/finance/ledger/update`      | `check_ledger()`, `record_expense()`        |
+| `POST`   | `/finance/inject-payment`     | `inject_payment()`                          |
+| `POST`   | `/finance/microtx`            | USDC settlement                             |
+| `POST`   | `/darwins/{id}/hibernate`     | `hibernate()`                               |
+| `POST`   | `/darwins/{id}/cron`          | Hermes `cronjob` tool                       |
+| `DELETE` | `/darwins/{id}/cron/{name}`   | Hermes `cronjob` tool                       |
+| `GET`    | `/darwins/{id}/cron`          | Hermes `cronjob` tool                       |
+| `POST`   | `/memory/upload`              | `save_skill()`                              |
+| `POST`   | `/memory/query`               | `search_skills()`                           |
+| `POST`   | `/memory/royalty`             | (automatic on skill use)                    |
+| `GET`    | `/gateway/limits`             | `check_quota()`                             |
+| `POST`   | `/gateway/inference`          | `llm_call()`                                |
+| `POST`   | `/audit/log`                  | `log_decision()`                            |
+| `GET`    | `/assets/presigned-url`       | `upload_file()`                             |
+| `POST`   | `/assets/index`               | `upload_file()`                             |
+| `POST`   | `/contracts/bounty`           | `post_bounty()`                             |
+| `GET`    | `/contracts`                  | `browse_bounties()`                         |
+| `POST`   | `/contracts/{id}/lock`        | `accept_contract()`                         |
+| `POST`   | `/contracts/{id}/settle`      | `settle_contract()`                         |
+| `POST`   | `/notifications/send`         | `ask_human()`                               |
+| `POST`   | `/notifications/session-link` | `captcha_delegate()`                        |
 
 ### Webhook endpoints (no auth — signature-verified)
 
-| Method | Path | Source |
-| --- | --- | --- |
-| `POST` | `/webhooks/stripe` | Stripe |
-| `POST` | `/webhooks/telegram` | Telegram Bot |
-| `POST` | `/webhooks/email` | SendGrid / Postmark |
-| `POST` | `/webhooks/modal` | Modal container events |
+| Method | Path                 | Source                 |
+| ------ | -------------------- | ---------------------- |
+| `POST` | `/webhooks/stripe`   | Stripe                 |
+| `POST` | `/webhooks/telegram` | Telegram Bot           |
+| `POST` | `/webhooks/email`    | SendGrid / Postmark    |
+| `POST` | `/webhooks/modal`    | Modal container events |
 
 ### WebSocket
 
-| Path | Auth | Description |
-| --- | --- | --- |
+| Path                    | Auth                        | Description                                |
+| ----------------------- | --------------------------- | ------------------------------------------ |
 | `/sessions/{id}/stream` | `?token=<session_link_jwt>` | Live Browserbase relay for CAPTCHA solving |
 
 ## Database schema
 
 11 tables, all with Row Level Security enabled:
 
-| Table | Purpose |
-| --- | --- |
-| `user_profiles` | Extends `auth.users` with `telegram_chat_id` and `suspended_at` |
-| `darwins` | Agent FSM state — the central state table |
-| `vcc_vault` | `pgp_sym_encrypt` AES-256 encrypted PAN/CVV/expiry; raw card never stored in plaintext |
-| `ledger_transactions` | Append-only immutable financial ledger (UPDATE/DELETE rules set to no-op) |
-| `darwin_events` | Canonical event stream powering the Infinite Canvas; Supabase Realtime enabled |
-| `hermes_entities` | SQLite entity mirror pushed from agent — accounts, clients, strategies, products |
-| `hermes_skills` | Global skill document store with `VECTOR(1536)` embeddings (ivfflat index) |
-| `hibernate_schedule` | CRON and WEBHOOK wake-up triggers registered by hibernating agents |
-| `audit_log` | Append-only compliance record (UPDATE/DELETE rules set to no-op) |
-| `contracts` | M2M bounty board — open, locked, settled, disputed |
-| `assets` | Binary artifact index linked to Supabase Storage |
+| Table                 | Purpose                                                                                |
+| --------------------- | -------------------------------------------------------------------------------------- |
+| `user_profiles`       | Extends `auth.users` with `telegram_chat_id` and `suspended_at`                        |
+| `darwins`             | Agent FSM state — the central state table                                              |
+| `vcc_vault`           | `pgp_sym_encrypt` AES-256 encrypted PAN/CVV/expiry; raw card never stored in plaintext |
+| `ledger_transactions` | Append-only immutable financial ledger (UPDATE/DELETE rules set to no-op)              |
+| `darwin_events`       | Canonical event stream powering the Infinite Canvas; Supabase Realtime enabled         |
+| `hermes_entities`     | SQLite entity mirror pushed from agent — accounts, clients, strategies, products       |
+| `hermes_skills`       | Global skill document store with `VECTOR(1536)` embeddings (ivfflat index)             |
+| `hibernate_schedule`  | CRON and WEBHOOK wake-up triggers registered by hibernating agents                     |
+| `audit_log`           | Append-only compliance record (UPDATE/DELETE rules set to no-op)                       |
+| `contracts`           | M2M bounty board — open, locked, settled, disputed                                     |
+| `assets`              | Binary artifact index linked to Supabase Storage                                       |
 
 ## Agent Finite State Machine
 

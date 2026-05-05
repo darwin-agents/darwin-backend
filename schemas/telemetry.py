@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from pydantic import BaseModel, Field, Field
+from pydantic import BaseModel, Field
 
 
 class MetricsPayload(BaseModel):
@@ -106,7 +106,7 @@ class LLMCallRequest(BaseModel):
     darwin_id: str
     session_id: str
     model: str
-    provider: str = "anthropic"
+    provider: str = "openrouter"
     input_tokens: int = Field(..., ge=0)
     output_tokens: int = Field(..., ge=0)
     cache_read_tokens: int = Field(default=0, ge=0)
@@ -114,6 +114,13 @@ class LLMCallRequest(BaseModel):
     cost_usd: float = Field(..., ge=0)
     duration_ms: int = Field(default=0, ge=0)
     turn_id: str | None = None
+    # Idempotency + multimodal accounting (agent-generated UUID per inference).
+    request_id: str | None = None
+    input_modalities: list[str] = Field(default_factory=list)
+    output_modalities: list[str] = Field(default_factory=list)
+    image_output_count: int = Field(default=0, ge=0)
+    audio_output_seconds: float = Field(default=0.0, ge=0)
+    video_output_seconds: float = Field(default=0.0, ge=0)
 
 
 class TelemetryHistoryBucket(BaseModel):

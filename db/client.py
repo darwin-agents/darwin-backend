@@ -7,6 +7,8 @@ Supabase client (supabase-py) is used for Auth helpers and Storage presigned URL
 
 from __future__ import annotations
 
+from urllib.parse import urlparse
+
 import asyncpg
 from supabase import AsyncClient, acreate_client
 
@@ -20,11 +22,16 @@ async def get_pool() -> asyncpg.Pool:  # type: ignore[type-arg]
     global _pool
     if _pool is None:
         settings = get_settings()
+        host = (urlparse(settings.database_url).hostname or "").lower()
+        # Supabase pooler (PgBouncer transaction mode) is incompatible with
+        # asyncpg prepared statement cache; disable cache in that topology.
+        stmt_cache_size = 0 if "pooler.supabase.com" in host else 100
         _pool = await asyncpg.create_pool(
             dsn=settings.database_url,
             min_size=2,
             max_size=20,
             command_timeout=30,
+            statement_cache_size=stmt_cache_size,
             init=_init_connection,
         )
     return _pool

@@ -84,7 +84,7 @@ class TestLedgerUpdateRequest:
 
     @pytest.mark.parametrize("tx_type", [
         "INITIAL_FUND", "VCC_DEBIT", "REVENUE_CREDIT", "ROYALTY_DEBIT", "ROYALTY_CREDIT",
-        "ESCROW_LOCK", "ESCROW_RELEASE", "METABOLIC_INJECTION", "WITHDRAWAL",
+        "ESCROW_LOCK", "ESCROW_RELEASE", "METABOLIC_INJECTION", "WITHDRAWAL", "LLM_USAGE_DEBIT",
     ])
     def test_all_valid_transaction_types_accepted(self, tx_type: str):
         from decimal import Decimal

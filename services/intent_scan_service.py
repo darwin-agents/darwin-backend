@@ -1,8 +1,7 @@
 """
 IntentScanService — pre-flight abuse classifier.
 
-Called synchronously by /darwins/spawn before any provisioning.
-Uses Claude Haiku for fast, cheap classification of malicious directives.
+Runs synchronously by callers awaiting scan_directive(); routed exclusively via OpenRouter.
 """
 
 from __future__ import annotations
@@ -10,14 +9,14 @@ from __future__ import annotations
 import json
 import logging
 
-import anthropic
+import httpx
 
 from config import Settings
+from services.openrouter import chat_completions_json, openrouter_headers
 
 log = logging.getLogger(__name__)
 
-_SYSTEM_PROMPT = """
-You are a security classifier for an autonomous AI agent platform.
+_SYSTEM_PROMPT = """You are a security classifier for an autonomous AI agent platform.
 Your only job is to determine if a user's directive describes malicious intent.
 
 Malicious intent includes: credential stuffing, DDoS attacks, scraping private/gated data
@@ -31,36 +30,66 @@ Respond ONLY with valid JSON in this exact format:
 
 class IntentScanService:
     def __init__(self, settings: Settings) -> None:
-        keys = settings.get_anthropic_keys()
-        key = keys[0] if keys else ""
-        self._client = anthropic.Anthropic(api_key=key) if key else None
+        self._settings = settings
 
     async def scan_directive(self, directive: str) -> tuple[bool, str | None]:
         """
         Returns (flagged, reason).
         flagged=True means the directive must be rejected.
-        Fails open (returns not flagged) if no API key is configured, or if Anthropic
-        returns an API error (bad key, rate limit, outage) — same as dev mode.
+        Fails open if no OpenRouter key is configured, or if the API errors.
         """
-        if self._client is None:
+        keys = self._settings.get_openrouter_keys()
+        if not keys:
+            return False, None
+
+        key = keys[0]
+        hdrs = openrouter_headers(
+            key,
+            self._settings.openrouter_http_referer,
+            self._settings.openrouter_app_title,
+        )
+        models_to_try = [
+            self._settings.openrouter_intent_scan_model,
+            "openai/gpt-4o-mini",
+            "anthropic/claude-3.5-haiku",
+        ]
+
+        data: dict | None = None
+        for model in models_to_try:
+            if not model:
+                continue
+            try:
+                async with httpx.AsyncClient(timeout=30.0) as client:
+                    data, _ = await chat_completions_json(
+                        client,
+                        url=self._settings.openrouter_base_url,
+                        headers=hdrs,
+                        model=model,
+                        messages=[
+                            {"role": "system", "content": _SYSTEM_PROMPT},
+                            {"role": "user", "content": f"Directive: {directive}"},
+                        ],
+                        max_tokens=120,
+                        temperature=0.0,
+                    )
+                break
+            except (httpx.HTTPError, OSError) as exc:
+                log.warning(
+                    "intent_scan model '%s' failed via OpenRouter: %s",
+                    model,
+                    exc,
+                )
+                data = None
+
+        if data is None:
+            log.warning("intent_scan skipped after OpenRouter model fallback exhaustion")
             return False, None
 
         try:
-            response = self._client.messages.create(
-                model="claude-haiku-4-5-20251001",
-                max_tokens=100,
-                system=_SYSTEM_PROMPT,
-                messages=[{"role": "user", "content": f"Directive: {directive}"}],
-            )
-        except anthropic.APIError as exc:
-            # Invalid key, rate limits, outages — same as “no key”: do not block spawn;
-            # operators should fix ANTHROPIC_API_KEY_* and watch logs.
-            log.warning("intent_scan skipped after Anthropic API error: %s", exc)
-            return False, None
-
-        try:
-            result = json.loads(response.content[0].text)
+            choices = data.get("choices") or []
+            msg = (choices[0].get("message") or {}) if choices else {}
+            text = msg.get("content") or ""
+            result = json.loads(text)
             return bool(result["flagged"]), result.get("reason")
-        except (json.JSONDecodeError, KeyError):
-            # If classifier output is unparseable, fail open (do not block)
+        except (json.JSONDecodeError, KeyError, IndexError, TypeError):
             return False, None
