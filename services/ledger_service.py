@@ -114,7 +114,7 @@ class LedgerService:
     async def get_ledger(self, darwin_id: str, limit: int = 50, offset: int = 0) -> dict:
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(
-                "SELECT ledger_balance FROM darwins WHERE id = $1", darwin_id
+                "SELECT ledger_balance, initial_budget FROM darwins WHERE id = $1", darwin_id
             )
             txs = await conn.fetch(
                 """
@@ -139,6 +139,7 @@ class LedgerService:
         return {
             "darwin_id": darwin_id,
             "current_balance": float(row["ledger_balance"]) if row else 0,
+            "initial_budget": float(row["initial_budget"]) if row else 0.0,
             "transactions": [dict(t) for t in txs],
             "total_revenue": float(totals["revenue"]),
             "total_burned": float(totals["burned"]),

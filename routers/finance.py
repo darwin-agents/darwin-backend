@@ -151,12 +151,17 @@ async def micro_transaction(
 @router.get("/ledger/{darwin_id}", response_model=LedgerResponse)
 async def get_ledger(
     darwin_id: str,
-    user: CurrentUser,
+    agent: CurrentAgent,
     pool: PoolDep,
     settings: SettingsDep,
     limit: int = 50,
     offset: int = 0,
 ) -> LedgerResponse:
+    """
+    Agent reads its own ledger (agent JWT). Humans use ``GET /darwins/{id}/state`` for balance.
+    """
+    if str(agent["darwin_id"]) != str(darwin_id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail={"error": "forbidden"})
     ledger = LedgerService(pool, settings)
     data = await ledger.get_ledger(darwin_id, limit, offset)
     return LedgerResponse(**data)

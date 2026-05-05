@@ -18,7 +18,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from schemas.finance import LedgerUpdateRequest, VCCPayload, VaultSubmitRequest
+from schemas.finance import LedgerResponse, LedgerUpdateRequest, VCCPayload, VaultSubmitRequest
 from services.ledger_service import InsufficientFundsError, LedgerService
 from tests.conftest import agent_headers, human_headers, make_pool
 
@@ -247,3 +247,18 @@ def test_inject_payment_agent_id_mismatch_rejected(client):
 def test_finance_ledger_get_requires_human_jwt(client):
     res = client.get("/api/v1/finance/ledger/agent-1")
     assert res.status_code in (401, 403, 422)
+
+
+def test_ledger_response_includes_initial_budget():
+    """Contract: agent check_ledger expects this field in JSON (must not be stripped)."""
+    r = LedgerResponse(
+        darwin_id="00000000-0000-0000-0000-000000000001",
+        current_balance=42.0,
+        initial_budget=100.0,
+        transactions=[],
+        total_revenue=0.0,
+        total_burned=58.0,
+    )
+    dumped = r.model_dump()
+    assert dumped["initial_budget"] == 100.0
+    assert "initial_budget" in dumped

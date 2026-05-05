@@ -105,6 +105,7 @@ class InjectPaymentRequest(BaseModel):
 class LedgerResponse(BaseModel):
     darwin_id: str
     current_balance: float
+    initial_budget: float
     transactions: list[dict]
     total_revenue: float
     total_burned: float

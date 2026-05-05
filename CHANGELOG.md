@@ -9,6 +9,10 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Fixed
+
+- **`GET /finance/ledger/{darwin_id}`** — `LedgerResponse` now includes `initial_budget`, matching `LedgerService.get_ledger` and the agent `check_ledger` tool (the field was previously dropped by Pydantic as an unknown key, causing `KeyError: 'initial_budget'` in Modal).
+
 ### Added
 
 - **Fly.io deployment scaffolding** — added `fly.toml` (Machines `http_service`, `/health` checks, FastAPI process command) and `.dockerignore` tuned for smaller, reproducible Docker builds on Fly.
