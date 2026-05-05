@@ -28,7 +28,11 @@ class Settings(BaseSettings):
         ...,
         description="Elevated server API key: sb_secret_... (preferred) or legacy JWT service_role",
     )
-    supabase_jwt_secret: SecretStr = Field(...)
+    supabase_jwt_secret: SecretStr = Field(
+        ...,
+        description="JWT secret for HS256 user access tokens (Dashboard → JWT Keys). "
+        "Unused for asymmetric tokens; those are verified via JWKS.",
+    )
 
     # ── PostgreSQL (direct asyncpg connection for FOR UPDATE locks) ───────────
     database_url: str = Field(

@@ -9,6 +9,11 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Supabase human JWT** — `get_current_user` verifies **RS256 / ES256** (and related) access tokens using the project **JWKS** (`{SUPABASE_URL}/auth/v1/.well-known/jwks.json`), with a short-lived in-memory cache. **HS256** tokens still use `SUPABASE_JWT_SECRET` as before.
+- **Intent scan** — `IntentScanService.scan_directive` catches **Anthropic `APIError`** (e.g. invalid `x-api-key`, rate limits, outages), logs a warning, and **fails open** so `/darwins/spawn` is not turned into a 500; configure a valid `ANTHROPIC_API_KEY_*` to run the classifier in production.
+
 ### Changed
 
 - **Breaking:** `SUPABASE_SERVICE_ROLE_KEY` removed. Use `SUPABASE_SECRET_KEY` only — set it to your project’s **secret** API key (`sb_secret_...`) or, during migration, the legacy JWT `service_role` value (Supabase treats both as elevated `apikey` credentials). `get_supabase()` now initializes the client with `supabase_secret_key`.

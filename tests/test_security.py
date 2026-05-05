@@ -13,7 +13,7 @@ Critical invariants (spec §19.3):
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -28,7 +28,6 @@ from tests.conftest import (
     make_human_jwt,
     make_pool,
 )
-
 
 # ── JWT realm separation ──────────────────────────────────────────────────────
 
@@ -241,12 +240,32 @@ class TestIntentScan:
         from unittest.mock import MagicMock
         settings = MagicMock()
         settings.get_anthropic_keys.return_value = []
-        from services.intent_scan_service import IntentScanService
         import asyncio
+
+        from services.intent_scan_service import IntentScanService
         svc = IntentScanService(settings)
         flagged, reason = asyncio.get_event_loop().run_until_complete(
             svc.scan_directive("Find wholesale suppliers")
         )
+        assert flagged is False
+        assert reason is None
+
+    async def test_intent_scan_fail_open_on_anthropic_api_error(self) -> None:
+        """Bad or revoked Anthropic keys must not crash spawn — same fail-open as no key."""
+        import anthropic
+
+        settings = MagicMock()
+        settings.get_anthropic_keys.return_value = ["sk-ant-invalid"]
+        from services.intent_scan_service import IntentScanService
+
+        svc = IntentScanService(settings)
+        svc._client = MagicMock()
+        svc._client.messages.create.side_effect = anthropic.AuthenticationError(
+            "invalid x-api-key",
+            response=MagicMock(status_code=401),
+            body={},
+        )
+        flagged, reason = await svc.scan_directive("Find wholesale suppliers in the niche")
         assert flagged is False
         assert reason is None
 
