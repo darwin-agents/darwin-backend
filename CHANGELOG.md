@@ -9,6 +9,15 @@ Versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### Added
+
+- **Fly.io deployment scaffolding** — added `fly.toml` (Machines `http_service`, `/health` checks, FastAPI process command) and `.dockerignore` tuned for smaller, reproducible Docker builds on Fly.
+
+### Changed
+
+- **README deployment docs** — added a full Fly.io deployment path (`fly apps create`, `fly secrets set`, `fly deploy`, checks/log verification) aligned with current Fly docs for FastAPI and service-level health checks.
+- **Fly test-cost profile:** `fly.toml` now uses `shared-cpu-1x` + `256mb`, one Uvicorn worker, and scale-to-zero idle settings (`auto_stop_machines = "stop"`, `min_machines_running = 0`) for minimal solo testing cost.
+
 ---
 
 ## [0.2.0] — 2026-05-05

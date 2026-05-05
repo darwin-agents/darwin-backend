@@ -351,6 +351,63 @@ Tasks: check_due_wakeups (30s), check_container_health (60s)
 
 The backend must be a long-running process — it must never be serverless. It maintains persistent database connections, Redis connections, and serves WebSocket relay for the CAPTCHA flow.
 
+### Fly.io (API server)
+
+`darwin-backend` now includes `fly.toml` and `.dockerignore` for Fly Machines deploys.
+
+1. Install and authenticate:
+
+```bash
+fly auth login
+```
+
+2. From `darwin-backend/`, create app (first time only):
+
+```bash
+fly apps create darwin-backend
+```
+
+3. Set runtime secrets (required values match `.env.example`):
+
+```bash
+fly secrets set \
+  SUPABASE_URL=... \
+  SUPABASE_SECRET_KEY=... \
+  SUPABASE_JWT_SECRET=... \
+  DATABASE_URL=... \
+  AGENT_JWT_SECRET=... \
+  VCC_ENCRYPTION_KEY=... \
+  MODAL_TOKEN_ID=... \
+  MODAL_TOKEN_SECRET=... \
+  TELEGRAM_BOT_TOKEN=... \
+  STRIPE_WEBHOOK_SECRET=... \
+  REDIS_URL=... \
+  OPENROUTER_API_KEY_1=...
+```
+
+Add optional secrets as needed: `OPENROUTER_API_KEY_2`, `MODAL_WEBHOOK_SECRET`, `MODAL_APP_NAME`, `MODAL_FUNCTION_NAME`, `MODAL_ENVIRONMENT_NAME`, `LANGFUSE_*`, `BROWSERBASE_*`, `OPENROUTER_HTTP_REFERER`, `OPENROUTER_APP_TITLE`.
+
+4. Deploy:
+
+```bash
+fly deploy
+```
+
+5. Verify health checks:
+
+```bash
+fly status
+fly checks list
+fly logs
+```
+
+Notes:
+- Fly docs currently recommend `http_service` + service-level health checks for HTTP apps, which is what `fly.toml` uses (`/health`).
+- Set `CORS_ORIGINS` in secrets to include your frontend domain(s), for example:
+  `CORS_ORIGINS=["https://your-frontend.vercel.app","http://localhost:3000"]`
+- If you use a custom app name, update `app = "..."` in `fly.toml` (or run `fly launch` to regenerate).
+- The committed `fly.toml` is tuned for low-cost solo testing: `shared-cpu-1x` + `256mb`, one Uvicorn worker, and `auto_stop_machines = "stop"` with `min_machines_running = 0` (expect cold starts after idle).
+
 ## Adding a router
 
 1. Create `routers/new_router.py` with `router = APIRouter(prefix="/new", tags=["new"])`.
