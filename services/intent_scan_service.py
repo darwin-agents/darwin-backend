@@ -8,10 +8,13 @@ Uses Claude Haiku for fast, cheap classification of malicious directives.
 from __future__ import annotations
 
 import json
+import logging
 
 import anthropic
 
 from config import Settings
+
+log = logging.getLogger(__name__)
 
 _SYSTEM_PROMPT = """
 You are a security classifier for an autonomous AI agent platform.
@@ -36,17 +39,25 @@ class IntentScanService:
         """
         Returns (flagged, reason).
         flagged=True means the directive must be rejected.
-        Falls back to False if no API key is configured (dev mode).
+        Fails open (returns not flagged) if no API key is configured, or if Anthropic
+        returns an API error (bad key, rate limit, outage) — same as dev mode.
         """
         if self._client is None:
             return False, None
 
-        response = self._client.messages.create(
-            model="claude-haiku-4-5-20251001",
-            max_tokens=100,
-            system=_SYSTEM_PROMPT,
-            messages=[{"role": "user", "content": f"Directive: {directive}"}],
-        )
+        try:
+            response = self._client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=100,
+                system=_SYSTEM_PROMPT,
+                messages=[{"role": "user", "content": f"Directive: {directive}"}],
+            )
+        except anthropic.APIError as exc:
+            # Invalid key, rate limits, outages — same as “no key”: do not block spawn;
+            # operators should fix ANTHROPIC_API_KEY_* and watch logs.
+            log.warning("intent_scan skipped after Anthropic API error: %s", exc)
+            return False, None
+
         try:
             result = json.loads(response.content[0].text)
             return bool(result["flagged"]), result.get("reason")
