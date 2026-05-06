@@ -24,4 +24,4 @@ EXPOSE 8000
 # Override CMD in Railway/Render for the Celery services:
 #   uv run celery -A workers.app worker --loglevel=info --concurrency=50 -P gevent
 #   uv run celery -A workers.app beat   --loglevel=info
-CMD ["uv", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]
+CMD [".venv/bin/uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]

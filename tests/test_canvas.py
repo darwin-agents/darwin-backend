@@ -100,12 +100,34 @@ class TestCanvasServicePushEvent:
         assert "synthesis" in payload
 
     @pytest.mark.asyncio
-    async def test_push_event_with_token_cost(self):
+    async def test_push_event_token_cost_stored_as_int(self):
+        """token_cost is BIGINT in the DB — must be passed as int, not float."""
         pool, conn = make_pool(fetchrow_returns=[{"id": "evt-cost"}])
+        svc = CanvasService(pool)
+        await svc.push_event("agent-1", "sess-1", "LLM_INFERENCE", {}, token_cost=15821.0)
+        _, args = conn.fetchrow_calls[0]
+        # Must be stored as int, not float (BIGINT column requires integer)
+        assert any(a == 15821 and isinstance(a, int) for a in args)
+
+    @pytest.mark.asyncio
+    async def test_push_event_large_token_count_no_overflow(self):
+        """Token counts like 30 000+ must not overflow (old NUMERIC(8,6) max was 99)."""
+        pool, conn = make_pool(fetchrow_returns=[{"id": "evt-big"}])
+        svc = CanvasService(pool)
+        # 30 000 tokens — well above old NUMERIC(8,6) limit of 99.999999
+        await svc.push_event("agent-1", "sess-1", "THOUGHT", {}, token_cost=30821)
+        _, args = conn.fetchrow_calls[0]
+        assert 30821 in args
+
+    @pytest.mark.asyncio
+    async def test_push_event_fractional_token_cost_truncated_to_int(self):
+        """Fractional token_cost (e.g. 0.00042) becomes 0 — no NUMERIC overflow."""
+        pool, conn = make_pool(fetchrow_returns=[{"id": "evt-frac"}])
         svc = CanvasService(pool)
         await svc.push_event("agent-1", "sess-1", "LLM_INFERENCE", {}, token_cost=0.00042)
         _, args = conn.fetchrow_calls[0]
-        assert 0.00042 in args
+        assert 0 in args
+        assert 0.00042 not in args
 
 
 # ── Valid event types ──────────────────────────────────────────────────────────

@@ -33,13 +33,16 @@ class CanvasService:
         """
         import json
 
+        # token_cost is stored as BIGINT (raw token count); fiat_cost as NUMERIC(14,6)
+        token_count = int(token_cost)
+
         async with self._pool.acquire() as conn:
             row = await conn.fetchrow(
                 """
                 INSERT INTO darwin_events
                   (darwin_id, session_id, neuron_id, parent_event_id,
                    event_type, payload, timestamp_ms, token_cost, fiat_cost)
-                VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9)
+                VALUES ($1::uuid, $2::uuid, $3, $4::uuid, $5, $6::jsonb, $7, $8, $9)
                 RETURNING id
                 """,
                 darwin_id,
@@ -49,7 +52,7 @@ class CanvasService:
                 event_type,
                 json.dumps(payload),
                 int(time.time() * 1000),
-                token_cost,
+                token_count,
                 fiat_cost,
             )
         return str(row["id"])

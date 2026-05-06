@@ -147,6 +147,35 @@ class TestTelemetryRoutes:
         )
         assert res.status_code in (401, 403)
 
+    def test_stream_no_celery_broker_needed(self, client):
+        """POST /telemetry/stream must return 202 without a Celery broker.
+
+        Previously used persist_telemetry_batch.delay() which raised an
+        OperationalError when the broker was unreachable → unhandled 500.
+        Now uses asyncio.create_task(_persist_batch(...)) — no broker at all.
+        """
+        from unittest.mock import AsyncMock, patch
+
+        with patch("workers.telemetry_worker._persist_batch", new_callable=AsyncMock):
+            res = client.post(
+                "/api/v1/telemetry/stream",
+                headers=agent_headers(),
+                json={
+                    "darwin_id": "agent-test-uuid",
+                    "session_id": "session-test-uuid",
+                    "metrics": {
+                        "tokens_burned_last_30s": 500,
+                        "llm_cost_last_30s": 0.002,
+                        "compute_cost_last_30s": 0.001,
+                        "failed_http_requests_last_30s": 0,
+                        "memory_util_mb": 278,
+                        "current_task": "Active",
+                    },
+                },
+            )
+        assert res.status_code == 202
+        assert res.json() == {"queued": True}
+
     def test_stream_wrong_agent_forbidden(self, client):
         res = client.post(
             "/api/v1/telemetry/stream",

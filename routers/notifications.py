@@ -126,8 +126,8 @@ async def resolve_session(
         + f"\n\nHuman resolved {payload.get('purpose', 'request')}: '{body.response}'"
     )
 
-    from workers.wake_worker import execute_agent_wake
-    execute_agent_wake.delay(darwin_id, wake_prompt, f"human_resolve_{payload.get('purpose')}")
+    from workers.wake_worker import _execute_wake
+    asyncio.create_task(_execute_wake(darwin_id, wake_prompt, f"human_resolve_{payload.get('purpose')}"))
 
     canvas = CanvasService(pool)
     import asyncio

@@ -379,8 +379,8 @@ async def wake_agent(darwin_id: str, user: CurrentUser, pool: PoolDep) -> dict:
                 detail={"error": "invalid_state_transition", "current_state": row["state"]},
             )
 
-    from workers.wake_worker import execute_agent_wake
-    execute_agent_wake.delay(darwin_id, "Manual wake initiated by creator.", "manual")
+    from workers.wake_worker import _execute_wake
+    asyncio.create_task(_execute_wake(darwin_id, "Manual wake initiated by creator.", "manual"))
     return {"queued": True}
 
 

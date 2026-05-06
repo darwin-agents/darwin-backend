@@ -109,7 +109,7 @@ async def session_stream(
 async def _wake_agent(payload: dict) -> None:
     """Trigger an agent wake via Celery after a successful CAPTCHA hand-off."""
     from db.client import get_pool
-    from workers.wake_worker import execute_agent_wake
+    from workers.wake_worker import _execute_wake
 
     pool = await get_pool()
     async with pool.acquire() as conn:
@@ -120,4 +120,4 @@ async def _wake_agent(payload: dict) -> None:
             payload["darwin_id"],
         )
     wake_prompt = row["wake_prompt"] if row else "Resume from captcha delegation."
-    execute_agent_wake.delay(payload["darwin_id"], wake_prompt, "captcha_solved")
+    asyncio.create_task(_execute_wake(payload["darwin_id"], wake_prompt, "captcha_solved"))

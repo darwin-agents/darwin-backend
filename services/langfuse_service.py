@@ -48,9 +48,12 @@ class LangfuseService:
         Returns trace nodes sorted by start time (same shape as the former LangSmith path).
         """
         cache_key = f"trace:lf:{darwin_id}:{session_id}:{neuron_id or 'main'}"
-        cached = await self._redis.get(cache_key)
-        if cached:
-            return cast(list[dict[str, Any]], json.loads(cached))
+        try:
+            cached = await self._redis.get(cache_key)
+            if cached:
+                return cast(list[dict[str, Any]], json.loads(cached))
+        except Exception as exc:
+            log.debug("Redis cache read unavailable for trace %s — %s", cache_key, exc)
 
         if not self._public or not self._secret:
             return []
@@ -61,7 +64,11 @@ class LangfuseService:
             log.warning("LangfuseService.get_trace failed for %s::%s — %s", darwin_id, session_id, exc)
             nodes = []
 
-        await self._redis.set(cache_key, json.dumps(nodes), ex=_CACHE_TTL)
+        try:
+            await self._redis.set(cache_key, json.dumps(nodes), ex=_CACHE_TTL)
+        except Exception as exc:
+            log.debug("Redis cache write unavailable for trace %s — %s", cache_key, exc)
+
         return nodes
 
     async def _fetch_trace_nodes(

@@ -281,7 +281,7 @@ def test_stream_resume_agent_triggers_wake_and_confirms(sessions_client):
 
 @pytest.mark.asyncio
 async def test_wake_agent_calls_execute_with_db_prompt():
-    """_wake_agent fetches the pending wake_prompt from DB and calls execute_agent_wake.delay."""
+    """_wake_agent fetches the pending wake_prompt from DB and calls _execute_wake."""
     from routers.sessions import _wake_agent
 
     mock_conn = AsyncMock()
@@ -291,14 +291,12 @@ async def test_wake_agent_calls_execute_with_db_prompt():
     mock_pool = MagicMock()
     mock_pool.acquire = MagicMock(return_value=mock_conn)
 
-    # _wake_agent does local imports: `from db.client import get_pool` and
-    # `from workers.wake_worker import execute_agent_wake`.  Patch at source.
     with patch("db.client.get_pool", new_callable=AsyncMock, return_value=mock_pool), \
-         patch("workers.wake_worker.execute_agent_wake") as mock_task:
+         patch("workers.wake_worker._execute_wake", new_callable=AsyncMock) as mock_wake:
 
         await _wake_agent({"darwin_id": "agent-42"})
 
-    mock_task.delay.assert_called_once_with(
+    mock_wake.assert_called_once_with(
         "agent-42", "Solve the checkout CAPTCHA.", "captcha_solved"
     )
 
@@ -316,11 +314,11 @@ async def test_wake_agent_uses_fallback_prompt_when_no_schedule_row():
     mock_pool.acquire = MagicMock(return_value=mock_conn)
 
     with patch("db.client.get_pool", new_callable=AsyncMock, return_value=mock_pool), \
-         patch("workers.wake_worker.execute_agent_wake") as mock_task:
+         patch("workers.wake_worker._execute_wake", new_callable=AsyncMock) as mock_wake:
 
         await _wake_agent({"darwin_id": "agent-99"})
 
-    _darwin_id, wake_prompt, trigger = mock_task.delay.call_args[0]
+    _darwin_id, wake_prompt, trigger = mock_wake.call_args[0]
     assert wake_prompt == "Resume from captcha delegation."
     assert trigger == "captcha_solved"
 

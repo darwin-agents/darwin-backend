@@ -90,7 +90,7 @@ CREATE POLICY "users see own vccs" ON vcc_vault
 -- ─────────────────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS ledger_transactions (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  darwin_id     UUID NOT NULL REFERENCES darwins(id),
+  darwin_id     UUID NOT NULL REFERENCES darwins(id) ON DELETE CASCADE,
   amount        NUMERIC(12,4) NOT NULL,
   balance_after NUMERIC(12,4) NOT NULL,
   type          TEXT NOT NULL CHECK (type IN (
@@ -109,18 +109,17 @@ CREATE POLICY "users see own transactions" ON ledger_transactions
     darwin_id IN (SELECT id FROM darwins WHERE user_id = auth.uid())
   );
 
--- Prevent UPDATE and DELETE on this table (append-only)
+-- Append-only: block in-row UPDATEs. Rows may be removed when the parent darwin is deleted (FK CASCADE).
 CREATE RULE no_update_ledger AS ON UPDATE TO ledger_transactions DO INSTEAD NOTHING;
-CREATE RULE no_delete_ledger AS ON DELETE TO ledger_transactions DO INSTEAD NOTHING;
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- 5. darwin_events  (the Infinite Canvas event stream)
 -- ─────────────────────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS darwin_events (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  darwin_id       UUID NOT NULL REFERENCES darwins(id),
+  darwin_id       UUID NOT NULL REFERENCES darwins(id) ON DELETE CASCADE,
   session_id      UUID NOT NULL,
-  parent_event_id UUID REFERENCES darwin_events(id),
+  parent_event_id UUID REFERENCES darwin_events(id) ON DELETE CASCADE,
   neuron_id       TEXT,
 
   event_type      TEXT NOT NULL CHECK (event_type IN (

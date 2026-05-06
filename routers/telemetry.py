@@ -9,6 +9,7 @@ import json
 import uuid
 from decimal import Decimal
 
+import asyncpg
 from asyncpg.exceptions import UniqueViolationError
 import redis.asyncio as aioredis
 from fastapi import APIRouter, HTTPException, status
@@ -43,11 +44,9 @@ async def stream_metrics(
     if agent["darwin_id"] != body.darwin_id:
         raise HTTPException(status_code=403, detail={"error": "forbidden"})
 
-    from workers.telemetry_worker import persist_telemetry_batch
-    persist_telemetry_batch.delay(
-        body.darwin_id,
-        body.session_id,
-        body.metrics.model_dump(),
+    from workers.telemetry_worker import _persist_batch
+    asyncio.create_task(
+        _persist_batch(body.darwin_id, body.session_id, body.metrics.model_dump())
     )
     return {"queued": True}
 
@@ -73,16 +72,19 @@ async def stream_event(
         raise HTTPException(status_code=422, detail={"error": "THOUGHT event must include payload.model"})
 
     canvas = CanvasService(pool)
-    event_id = await canvas.push_event(
-        darwin_id=body.darwin_id,
-        session_id=body.session_id,
-        event_type=body.event_type,
-        payload=body.payload,
-        neuron_id=body.neuron_id,
-        parent_event_id=body.parent_event_id,
-        token_cost=body.token_cost,
-        fiat_cost=body.fiat_cost,
-    )
+    try:
+        event_id = await canvas.push_event(
+            darwin_id=body.darwin_id,
+            session_id=body.session_id,
+            event_type=body.event_type,
+            payload=body.payload,
+            neuron_id=body.neuron_id,
+            parent_event_id=body.parent_event_id,
+            token_cost=body.token_cost,
+            fiat_cost=body.fiat_cost,
+        )
+    except asyncpg.PostgresError as exc:
+        raise HTTPException(status_code=500, detail={"error": "db_error", "detail": str(exc)}) from exc
     return {"event_id": event_id}
 
 

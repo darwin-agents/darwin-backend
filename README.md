@@ -291,7 +291,7 @@ All routes are prefixed `/api/v1`. Docs available at `GET /docs` (disabled in pr
 | `user_profiles`       | Extends `auth.users` with `telegram_chat_id` and `suspended_at`                        |
 | `darwins`             | Agent FSM state — the central state table                                              |
 | `vcc_vault`           | `pgp_sym_encrypt` AES-256 encrypted PAN/CVV/expiry; raw card never stored in plaintext |
-| `ledger_transactions` | Append-only immutable financial ledger (UPDATE/DELETE rules set to no-op)              |
+| `ledger_transactions` | Append-only ledger (UPDATE rule is no-op); rows cascade-delete when the parent darwin is removed |
 | `darwin_events`       | Canonical event stream powering the Infinite Canvas; Supabase Realtime enabled         |
 | `hermes_entities`     | SQLite entity mirror pushed from agent — accounts, clients, strategies, products       |
 | `hermes_skills`       | Global skill document store with `VECTOR(1536)` embeddings (ivfflat index)             |

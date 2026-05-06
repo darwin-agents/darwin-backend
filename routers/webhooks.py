@@ -2,11 +2,12 @@
 /webhooks — External Event Switchboard.
 
 All routes respond with 200 OK within 10 ms.
-Actual processing is async via Celery workers.
+Actual processing runs in asyncio background tasks.
 """
 
 from __future__ import annotations
 
+import asyncio
 import json
 
 import stripe
@@ -39,9 +40,9 @@ async def stripe_webhook(
             detail={"error": "invalid_signature"},
         )
 
-    from workers.webhook_worker import process_stripe_webhook
-    task = process_stripe_webhook.delay(payload.decode())
-    return {"received": True, "job_id": task.id}
+    from workers.webhook_worker import _process_stripe
+    asyncio.create_task(_process_stripe(payload.decode()))
+    return {"received": True}
 
 
 @router.post("/telegram", status_code=status.HTTP_200_OK)
@@ -57,18 +58,18 @@ async def telegram_webhook(
         raise HTTPException(status_code=403, detail={"error": "invalid_signature"})
 
     raw = await request.body()
-    from workers.webhook_worker import process_telegram_webhook
-    task = process_telegram_webhook.delay(raw.decode())
-    return {"received": True, "job_id": task.id}
+    from workers.webhook_worker import _process_telegram
+    asyncio.create_task(_process_telegram(raw.decode()))
+    return {"received": True}
 
 
 @router.post("/email", status_code=status.HTTP_200_OK)
 async def email_webhook(request: Request) -> dict:
     """Receive inbound email (SendGrid Inbound Parse) → enqueue."""
     raw = await request.body()
-    from workers.webhook_worker import process_email_webhook
-    task = process_email_webhook.delay(raw.decode())
-    return {"received": True, "job_id": task.id}
+    from workers.webhook_worker import _process_email
+    asyncio.create_task(_process_email(raw.decode()))
+    return {"received": True}
 
 
 @router.post("/modal", status_code=status.HTTP_200_OK)
@@ -96,7 +97,7 @@ async def modal_webhook(
     darwin_id = payload.get("darwin_id")
 
     if event_type == "container.exited_unexpectedly" and darwin_id:
-        from workers.telemetry_worker import check_container_health
-        check_container_health.delay()
+        from workers.telemetry_worker import _check_health
+        asyncio.create_task(_check_health())
 
     return {"received": True}
